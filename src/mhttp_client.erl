@@ -115,7 +115,8 @@ connect_tcp(Options) ->
   RequiredTCPOptions = [{mode, binary}],
   TCPOptions = RequiredTCPOptions ++ maps:get(tcp_options, Options, []),
   ?LOG_INFO("connecting to ~s:~b", [Host, Port]),
-  case gen_tcp:connect(unicode:characters_to_list(Host), Port, TCPOptions) of
+  HostString = unicode:characters_to_list(Host),
+  case gen_tcp:connect(HostString, Port, TCPOptions, 5000) of
     {ok, Socket} ->
       ?LOG_INFO("connection established"),
       #{options => Options#{host => Host, port => Port},
@@ -136,7 +137,8 @@ connect_tls(Options) ->
     maps:get(tcp_options, Options, []) ++
     maps:get(tls_options, Options, []),
   ?LOG_INFO("connecting to ~s:~b", [Host, Port]),
-  case ssl:connect(unicode:characters_to_list(Host), Port, TLSOptions) of
+  HostString = unicode:characters_to_list(Host),
+  case ssl:connect(HostString, Port, TLSOptions, 5000) of
     {ok, Socket} ->
       ?LOG_INFO("connection established"),
       #{options => Options#{host => Host, port => Port},
