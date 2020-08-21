@@ -177,10 +177,8 @@ read_response(State, Parser, Data) ->
   case mhttp_response_parser:parse(Parser, Data) of
     {ok, Response, #{data := Rest}} ->
       {Response, Rest};
-    {more, undefined, Parser2} ->
-      read_response(State, Parser2, recv(State, 0));
-    {more, N, Parser2} ->
-      read_response(State, Parser2, recv(State, N))
+    {more, Parser2} ->
+      read_response(State, Parser2, recv(State, 0))
   end.
 
 -spec set_socket_active(state(), boolean()) -> ok.

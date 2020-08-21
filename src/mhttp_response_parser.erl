@@ -26,8 +26,7 @@
                | final.
 
 -type parse_result() :: {ok, mhttp:response(), parser()} |
-                        {more, NbBytes :: pos_integer(), parser()} |
-                        {more, undefined, parser()}.
+                        {more, parser()}.
 
 -spec new(Data :: binary(), mhttp:request()) -> parser().
 new(Data, Request) ->
@@ -51,7 +50,7 @@ parse(P = #{data := Data, state := status_line}) ->
       Response = #{status => Status, reason => Reason, version => Version},
       parse(P#{data => Rest, state => header, response => Response});
     _ ->
-      {more, undefined, P}
+      {more, P}
   end;
 
 parse(P = #{data := <<"\r\n", Rest/binary>>,
@@ -69,7 +68,7 @@ parse(P = #{data := Data, state := header, response := Response}) ->
       Response2 = Response#{header => mhttp_header:add_field(Header, Field)},
       parse(P#{data => Rest, state => header, response => Response2});
     _ ->
-      {more, undefined, P}
+      {more, P}
   end;
 
 parse(P = #{data := Data, state := body, request := Request,
@@ -81,7 +80,7 @@ parse(P = #{data := Data, state := body, request := Request,
           Response2 = Response#{body => Body},
           parse(P#{data => Rest, state => final, response => Response2});
         _ ->
-          {more, Length - byte_size(Data), P}
+          {more, P}
       end;
     chunked ->
       parse(P#{state => chunked_body});
@@ -105,11 +104,11 @@ parse(P = #{data := Data, state := chunked_body, response := Response}) ->
             <<_:Length/binary, _/binary>> ->
               error(invalid_chunk);
             _ ->
-              {more, Length - byte_size(Data) + 2, P}
+              {more, P}
           end
       end;
     _ ->
-      {more, undefined, P}
+      {more, P}
   end;
 
 parse(P = #{data := <<"\r\n", Rest/binary>>,
@@ -127,7 +126,7 @@ parse(P = #{data := Data, state := trailer, response := Response}) ->
       Response2 = Response#{trailer => mhttp_trailer:add_field(Trailer, Field)},
       parse(P#{data => Rest, state => trailer, response => Response2});
     _ ->
-      {more, undefined, P}
+      {more, P}
   end;
 
 parse(P = #{state := final, response := Response}) ->
