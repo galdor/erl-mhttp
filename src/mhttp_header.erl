@@ -15,6 +15,7 @@
 -module(mhttp_header).
 
 -export([new/0,
+         append/2,
          contains/2, find/2, find_all/2, find_all_concat/2, find_all_split/2,
          add/3, add_field/2, add_if_missing/3,
          content_length/1,
@@ -24,6 +25,10 @@
 -spec new() -> mhttp:header().
 new() ->
   [].
+
+-spec append(mhttp:header(), mhttp:header()) -> mhttp:header().
+append(Header1, Header2) ->
+  Header1 ++ Header2.
 
 -spec contains(mhttp:header(), mhttp:header_name()) -> boolean().
 contains(Header, Name) ->

@@ -30,7 +30,8 @@
                      port => inets:port_number(),
                      transport => mhttp:transport(),
                      tcp_options => [gen_tcp:connect_option()],
-                     tls_options => [ssl:tls_client_option()]}.
+                     tls_options => [ssl:tls_client_option()],
+                     header => mhttp:header()}.
 
 -type state() :: #{options := options(),
                    transport := mhttp:transport(),
@@ -163,7 +164,9 @@ do_send_request(State, Request0, _RequestOptions) ->
 -spec finalize_request(state(), mhttp:request()) -> mhttp:request().
 finalize_request(#{options := Options}, Request) ->
   #{host := Host, port := Port} = Options,
-  Funs = [fun (R) -> mhttp_request:ensure_host(R, Host, Port) end,
+  Header = maps:get(header, Options, []),
+  Funs = [fun (R) -> mhttp_request:prepend_header(R, Header) end,
+          fun (R) -> mhttp_request:ensure_host(R, Host, Port) end,
           fun mhttp_request:maybe_add_content_length/1],
   lists:foldl(fun (Fun, R) -> Fun(R) end, Request, Funs).
 

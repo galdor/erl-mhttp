@@ -14,7 +14,8 @@
 
 -module(mhttp_request).
 
--export([header/1, target_uri/1,
+-export([target_uri/1,
+         header/1, prepend_header/2,
          ensure_host/3, maybe_add_content_length/1,
          redirect/3, redirection_uri/2]).
 
@@ -32,6 +33,10 @@ target_uri(#{target := Target}) ->
 -spec header(mhttp:request()) -> mhttp:header().
 header(Request) ->
   maps:get(header, Request, mhttp_header:new()).
+
+-spec prepend_header(mhttp:request(), mhttp:header()) -> mhttp:request().
+prepend_header(Request, Header) ->
+  Request#{header => mhttp_header:append(Header, header(Request))}.
 
 -spec ensure_host(mhttp:request(), mhttp:host(), inets:port_number()) ->
         mhttp:request().
