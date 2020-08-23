@@ -19,8 +19,6 @@
 -export([start_link/0]).
 -export([init/1]).
 
--type pool_spec() :: {Id :: atom(), mhttp_pool:options()}.
-
 start_link() ->
   supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
@@ -30,18 +28,21 @@ init([]) ->
 
 -spec pool_child_specs() -> [supervisor:child_spec()].
 pool_child_specs() ->
-  DefaultPoolSpec = {default, #{}},
-  EnvPoolSpecs = application:get_env(mhttp, pools, []),
-  PoolSpecs = case lists:keymember(default, 1, EnvPoolSpecs) of
+  EnvPoolSpecs = application:get_env(mhttp, pools, #{}),
+  PoolSpecs = case maps:is_key(default, EnvPoolSpecs) of
                 true ->
                   EnvPoolSpecs;
                 false ->
-                  [DefaultPoolSpec | EnvPoolSpecs]
+                  EnvPoolSpecs#{default => #{}}
               end,
-  lists:map(fun pool_child_spec/1, PoolSpecs).
+  maps:fold(fun (Id, Options, Acc) ->
+                [pool_child_spec(Id, Options) | Acc]
+            end,
+            [], PoolSpecs).
 
--spec pool_child_spec(pool_spec()) -> supervisor:child_spec().
-pool_child_spec({ChildId, Options}) ->
+-spec pool_child_spec(atom(), mhttp_server:options()) ->
+        supervisor:child_spec().
+pool_child_spec(ChildId, Options) ->
   Name = mhttp_pool:process_name(ChildId),
   #{id => ChildId,
     start => {mhttp_pool, start_link, [{local, Name}, Options]}}.

@@ -83,8 +83,8 @@ use a specific user agent:
 ```erlang
 [{mhttp,
   [{pools,
-    [{example, #{client_options =>
-                   #{header => [{<<"User-Agent">>, <<"Example/1.0">>}]}}}]}]}].
+    #{example => #{client_options =>
+                       #{header => [{<<"User-Agent">>, <<"Example/1.0">>}]}}}}]}].
 ```
 
 ## Pool options

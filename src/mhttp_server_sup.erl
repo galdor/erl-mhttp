@@ -19,8 +19,6 @@
 -export([start_link/0]).
 -export([init/1]).
 
--type server_spec() :: {Id :: atom(), mhttp_server:options()}.
-
 start_link() ->
   supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
@@ -30,11 +28,15 @@ init([]) ->
 
 -spec server_child_specs() -> [supervisor:child_spec()].
 server_child_specs() ->
-  ServerSpecs = application:get_env(mhttp, servers, []),
-  lists:map(fun server_child_spec/1, ServerSpecs).
+  ServerSpecs = application:get_env(mhttp, servers, #{}),
+  maps:fold(fun (Id, Options, Acc) ->
+                [server_child_spec(Id, Options) | Acc]
+            end,
+            [], ServerSpecs).
 
--spec server_child_spec(server_spec()) -> supervisor:child_spec().
-server_child_spec({ChildId, Options}) ->
+-spec server_child_spec(atom(), mhttp_server:options()) ->
+        supervisor:child_spec().
+server_child_spec(ChildId, Options) ->
   Name = mhttp_server:process_name(ChildId),
   #{id => ChildId,
     start => {mhttp_server, start_link, [{local, Name}, Options]}}.
