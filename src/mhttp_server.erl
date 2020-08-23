@@ -26,11 +26,12 @@
 -type server_name() :: mhttp:gen_server_name().
 -type server_ref() :: mhttp:gen_server_ref().
 
--type options() :: #{host => mhttp:host(),
+-type options() :: #{address => inet:socket_address(),
                      port => inets:port_number(),
-                     tcp_options => [gen_tcp:connect_option()]}.
+                     tcp_listen_options => [gen_tcp:listen_option()]}.
 
-%% -type state() :: #{options := options()}.
+-type state() :: #{options := options(),
+                   socket := inet:socket()}.
 
 -spec process_name(mhttp:server_id()) -> atom().
 process_name(Id) ->
@@ -47,11 +48,13 @@ start_link(Options) ->
 start_link(Name, Options) ->
   gen_server:start_link(Name, ?MODULE, [Options], []).
 
-init([_Options]) ->
+init([Options]) ->
   logger:update_process_metadata(#{domain => [mhttp, server]}),
-  {ok, #{}}.
-  %% {ok, listen(Options)}.
+  {ok, listen(Options)}.
 
+terminate(Reason, State = #{socket := Socket}) ->
+  gen_tcp:close(Socket),
+  terminate(Reason, maps:remove(socket, State));
 terminate(_Reason, _State) ->
   ok.
 
@@ -66,3 +69,20 @@ handle_cast(Msg, State) ->
 handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
   {noreply, State}.
+
+-spec listen(options()) -> state().
+listen(Options) ->
+  Address = maps:get(address, Options, loopback),
+  Port = maps:get(port, Options, 80),
+  RequiredTCPOptions = [binary, {ip, Address}],
+  TCPOptions = RequiredTCPOptions ++ maps:get(tcp_listen_options, Options, []),
+  case gen_tcp:listen(Port, TCPOptions) of
+    {ok, Socket} ->
+      {ok, {LocalAddress, LocalPort}} = inet:sockname(Socket),
+      ?LOG_INFO("listening on ~s:~b", [inet:ntoa(LocalAddress), LocalPort]),
+      #{options => Options#{address => Address, port => Port},
+        socket => Socket};
+    {error, Reason} ->
+      ?LOG_ERROR("listening failed: ~p", [Reason]),
+      error({listen_failure, {Address, Port}, Reason})
+  end.
