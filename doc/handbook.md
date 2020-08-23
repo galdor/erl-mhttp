@@ -52,7 +52,7 @@ relies on pools.
 ## Client options
 The following client options are available:
 
-- `host`: the hostname or IP address to connect to (default: `localhost`).
+- `host`: the hostname or IP address to connect to (default: `<<"localhost">>`).
 - `port`: the port number to connect to (default: `80`).
 - `transport`: the network transport, either `tcp` or `tls`.
 - `tcp_options`: a list of `gen_tcp` client options to apply.
