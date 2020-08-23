@@ -12,21 +12,29 @@
 %% OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 %% PERFORMANCE OF THIS SOFTWARE.
 
--module(mhttp_sup).
+-module(mhttp_server_sup).
 
 -behaviour(supervisor).
 
 -export([start_link/0]).
 -export([init/1]).
 
+-type server_spec() :: {Id :: atom(), mhttp_server:options()}.
+
 start_link() ->
   supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 init([]) ->
-  Children = [#{id => pools,
-                start => {mhttp_pool_sup, start_link, []},
-                type => supervisor},
-              #{id => servers,
-                start => {mhttp_server_sup, start_link, []},
-                type => supervisor}],
+  Children = server_child_specs(),
   {ok, {{one_for_one, 1, 5}, Children}}.
+
+-spec server_child_specs() -> [supervisor:child_spec()].
+server_child_specs() ->
+  ServerSpecs = application:get_env(mhttp, servers, []),
+  lists:map(fun server_child_spec/1, ServerSpecs).
+
+-spec server_child_spec(server_spec()) -> supervisor:child_spec().
+server_child_spec({ChildId, Options}) ->
+  Name = mhttp_server:process_name(ChildId),
+  #{id => ChildId,
+    start => {mhttp_server, start_link, [{local, Name}, Options]}}.
