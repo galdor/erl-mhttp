@@ -50,7 +50,9 @@ start_link(Name, Options) ->
 
 init([Options]) ->
   logger:update_process_metadata(#{domain => [mhttp, server]}),
-  {ok, listen(Options)}.
+  State = listen(Options),
+  spawn_acceptors(State),
+  {ok, State}.
 
 terminate(Reason, State = #{socket := Socket}) ->
   gen_tcp:close(Socket),
@@ -74,7 +76,10 @@ handle_info(Msg, State) ->
 listen(Options) ->
   Address = maps:get(address, Options, loopback),
   Port = maps:get(port, Options, 80),
-  RequiredTCPOptions = [binary, {ip, Address}],
+  RequiredTCPOptions = [{ip, Address},
+                        {reuseaddr, true},
+                        {active, false},
+                        binary],
   TCPOptions = RequiredTCPOptions ++ maps:get(tcp_listen_options, Options, []),
   case gen_tcp:listen(Port, TCPOptions) of
     {ok, Socket} ->
@@ -83,6 +88,12 @@ listen(Options) ->
       #{options => Options#{address => Address, port => Port},
         socket => Socket};
     {error, Reason} ->
-      ?LOG_ERROR("listening failed: ~p", [Reason]),
+      ?LOG_ERROR("cannot listen for connections: ~p", [Reason]),
       error({listen_failure, {Address, Port}, Reason})
   end.
+
+-spec spawn_acceptors(state()) -> ok.
+spawn_acceptors(#{socket := Socket}) ->
+  AcceptorOptions = #{socket => Socket},
+  {ok, AcceptorSup} = mhttp_acceptor_sup:start_link(AcceptorOptions),
+  mhttp_acceptor_sup:start_children(AcceptorSup, 5).
