@@ -36,7 +36,7 @@
 -type state() :: #{options := options(),
                    transport := mhttp:transport(),
                    socket := inet:socket() | ssl:sslsocket(),
-                   read_buffer := binary()}.
+                   parser := mhttp_parser:parser()}.
 
 -spec start_link(options()) -> Result when
     Result :: {ok, pid()} | ignore | {error, term()}.
@@ -123,7 +123,7 @@ connect_tcp(Options) ->
       #{options => Options#{host => Host, port => Port},
         transport => tcp,
         socket => Socket,
-        read_buffer => <<>>};
+        parser => mhttp_parser:new(response)};
     {error, Reason} ->
       ?LOG_ERROR("connection failed: ~p", [Reason]),
       error({connection_failure, {Host, Port, tcp}, Reason})
@@ -145,7 +145,7 @@ connect_tls(Options) ->
       #{options => Options#{host => Host, port => Port},
         transport => tls,
         socket => Socket,
-        read_buffer => <<>>};
+        parser => mhttp_parser:new(response)};
     {error, Reason} ->
       ?LOG_ERROR("connection failed: ~p", [Reason]),
       error({connection_failure, {Host, Port, tls}, Reason})
@@ -157,9 +157,9 @@ do_send_request(State, Request0, _RequestOptions) ->
   Request = finalize_request(State, Request0),
   send(State, mhttp_proto:encode_request(Request)),
   set_socket_active(State, false),
-  {Response, Rest} = read_response(State, Request),
-  set_socket_active(State, true),
-  {State#{read_buffer => Rest}, Response}.
+  {State2, Response} = read_response(State),
+  set_socket_active(State2, true),
+  {State2, Response}.
 
 -spec finalize_request(state(), mhttp:request()) -> mhttp:request().
 finalize_request(#{options := Options}, Request) ->
@@ -170,20 +170,14 @@ finalize_request(#{options := Options}, Request) ->
           fun mhttp_request:maybe_add_content_length/1],
   lists:foldl(fun (Fun, R) -> Fun(R) end, Request, Funs).
 
--spec read_response(state(), mhttp:request()) ->
-        {mhttp:response(), Rest :: binary()}.
-read_response(State = #{read_buffer := Data}, Request) ->
-  Parser = mhttp_response_parser:new(Data, Request),
-  read_response(State, Parser, <<>>).
-
--spec read_response(state(), mhttp_response_parser:parser(), binary()) ->
-        {mhttp:response(), Rest :: binary()}.
-read_response(State, Parser, Data) ->
-  case mhttp_response_parser:parse(Parser, Data) of
-    {ok, Response, #{data := Rest}} ->
-      {Response, Rest};
+-spec read_response(state()) -> {state(), mhttp:response()}.
+read_response(State = #{parser := Parser}) ->
+  Data = recv(State, 0),
+  case mhttp_parser:parse(Parser, Data) of
+    {ok, Response, Parser2} ->
+      {State#{parser => Parser2}, Response};
     {more, Parser2} ->
-      read_response(State, Parser2, recv(State, 0))
+      read_response(State#{parser => Parser2})
   end.
 
 -spec set_socket_active(state(), boolean()) -> ok.

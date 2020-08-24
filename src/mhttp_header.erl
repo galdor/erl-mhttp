@@ -20,7 +20,8 @@
          add/3, add_field/2, add_if_missing/3,
          content_length/1,
          transfer_encoding/1, has_transfer_encoding/2,
-         has_connection_close/1]).
+         has_connection_close/1,
+         body/1]).
 
 -spec new() -> mhttp:header().
 new() ->
@@ -131,3 +132,17 @@ has_connection_close(Header) ->
   Values0 = mhttp_header:find_all_split(Header, <<"Connection">>),
   Values = lists:map(fun string:lowercase/1, Values0),
   lists:member(<<"close">>, Values).
+
+-spec body(mhttp:header()) -> {fixed, pos_integer()} | chunked | none.
+body(Header) ->
+  case mhttp_header:content_length(Header) of
+    {ok, Length} ->
+      {fixed, Length};
+    error ->
+      case mhttp_header:has_transfer_encoding(Header, <<"chunked">>) of
+        true ->
+          chunked;
+        false ->
+          none
+      end
+    end.

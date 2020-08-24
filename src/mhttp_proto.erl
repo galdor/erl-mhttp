@@ -16,7 +16,8 @@
 
 -export([encode_request/1,
          encode_request_line/3, encode_status_line/3, encode_header/1,
-         parse_status_line/1, parse_header_field/1,
+         parse_request_line/1, parse_status_line/1,
+         parse_header_field/1,
          parse_chunk_header/1]).
 
 -spec encode_request(mhttp:request()) -> iodata().
@@ -78,6 +79,16 @@ encode_version(Version) when is_binary(Version) ->
 encode_status(Status) ->
   integer_to_binary(Status).
 
+-spec parse_request_line(binary()) -> {mhttp:method(), mhttp:target(),
+                                       mhttp:version()}.
+parse_request_line(Line) ->
+  case binary:split(Line, <<" ">>, [global]) of
+    [Method, Target, Version] ->
+      {parse_method(Method), parse_target(Target), parse_version(Version)};
+    _ ->
+      error({invalid_request_line, Line})
+  end.
+
 -spec parse_status_line(binary()) -> {mhttp:version(), mhttp:status(),
                                       Reason :: binary()}.
 parse_status_line(Line) ->
@@ -92,6 +103,33 @@ parse_status_line(Line) ->
     _ ->
       error({truncated_version, Line})
   end.
+
+-spec parse_method(binary()) -> mhttp:method().
+parse_method(Data) ->
+  case string:lowercase(Data) of
+    <<"get">> ->
+      get;
+    <<"head">> ->
+      head;
+    <<"post">> ->
+      post;
+    <<"put">> ->
+      put;
+    <<"delete">> ->
+      delete;
+    <<"connect">> ->
+      connect;
+    <<"options">> ->
+      options;
+    <<"trace">> ->
+      trace;
+    _ ->
+      Data
+  end.
+
+-spec parse_target(binary()) -> mhttp:target().
+parse_target(Data) ->
+  uri:parse(Data).
 
 -spec parse_version(binary()) -> mhttp:version().
 parse_version(<<"HTTP/1.0">>) ->
