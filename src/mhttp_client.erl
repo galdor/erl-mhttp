@@ -155,9 +155,11 @@ connect_tls(Options) ->
         {state(), mhttp:response()}.
 do_send_request(State, Request0, _RequestOptions) ->
   Request = finalize_request(State, Request0),
+  ?LOG_DEBUG("sending request ~p", [Request]),
   send(State, mhttp_proto:encode_request(Request)),
   set_socket_active(State, false),
   {State2, Response} = read_response(State),
+  ?LOG_DEBUG("received response ~p", [Response]),
   set_socket_active(State2, true),
   {State2, Response}.
 
@@ -180,13 +182,14 @@ read_response(State = #{parser := Parser}) ->
       read_response(State#{parser => Parser2})
   end.
 
--spec set_socket_active(state(), boolean()) -> ok.
+-spec set_socket_active(state(), boolean() | pos_integer()) -> ok.
 set_socket_active(#{transport := Transport, socket := Socket}, Active) ->
   Fun = case Transport of
           tcp -> fun inet:setopts/2;
           tls -> fun ssl:setopts/2
         end,
-  Fun(Socket, [{active, Active}]).
+  ok = Fun(Socket, [{active, Active}]),
+  ok.
 
 -spec send(state(), iodata()) -> ok.
 send(#{transport := Transport, socket := Socket}, Data) ->

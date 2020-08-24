@@ -55,9 +55,9 @@
                              follow_redirections => boolean(),
                              max_nb_redirections => pos_integer()}.
 
--type response() :: #{version := version(),
+-type response() :: #{version => version(),
                       status := status(),
-                      reason := binary(),
+                      reason => binary(),
                       header => header(),
                       body => body(),
                       trailer => header()}.

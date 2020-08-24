@@ -28,7 +28,7 @@
 
 -type options() :: #{address => inet:socket_address(),
                      port => inets:port_number(),
-                     tcp_listen_options => [gen_tcp:listen_option()]}.
+                     tcp_options => [gen_tcp:listen_option()]}.
 
 -type state() :: #{options := options(),
                    socket := inet:socket()}.
@@ -80,7 +80,7 @@ listen(Options) ->
                         {reuseaddr, true},
                         {active, false},
                         binary],
-  TCPOptions = RequiredTCPOptions ++ maps:get(tcp_listen_options, Options, []),
+  TCPOptions = RequiredTCPOptions ++ maps:get(tcp_options, Options, []),
   case gen_tcp:listen(Port, TCPOptions) of
     {ok, Socket} ->
       {ok, {LocalAddress, LocalPort}} = inet:sockname(Socket),

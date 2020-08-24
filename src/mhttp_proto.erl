@@ -14,7 +14,7 @@
 
 -module(mhttp_proto).
 
--export([encode_request/1,
+-export([encode_request/1, encode_response/1,
          encode_request_line/3, encode_status_line/3, encode_header/1,
          parse_request_line/1, parse_status_line/1,
          parse_header_field/1,
@@ -27,6 +27,18 @@ encode_request(Request = #{method := Method, target := Target}) ->
   Body = maps:get(body, Request, <<>>),
   Trailer = maps:get(trailer, Request, []),
   [mhttp_proto:encode_request_line(Method, Target, Version),
+   mhttp_proto:encode_header(Header),
+   <<"\r\n">>,
+   Body,
+   mhttp_proto:encode_header(Trailer)].
+
+-spec encode_response(mhttp:response()) -> iodata().
+encode_response(Response = #{status := Status, reason := Reason}) ->
+  Version = maps:get(version, Response, http_1_1),
+  Header = mhttp_response:header(Response),
+  Body = maps:get(body, Response, <<>>),
+  Trailer = maps:get(trailer, Response, []),
+  [mhttp_proto:encode_status_line(Version, Status, Reason),
    mhttp_proto:encode_header(Header),
    <<"\r\n">>,
    Body,

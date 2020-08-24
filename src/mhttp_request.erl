@@ -47,18 +47,13 @@ ensure_host(Request, Host, Port) ->
   Request#{header => Header2}.
 
 -spec maybe_add_content_length(mhttp:request()) -> mhttp:request().
-maybe_add_content_length(Request = #{body := Body}) ->
-  case iolist_size(Body) of
-    0 ->
-      Request;
-    Length ->
-      Header = mhttp_request:header(Request),
-      Header2 = mhttp_header:add_if_missing(Header, <<"Content-Length">>,
-                                            integer_to_binary(Length)),
-      Request#{header => Header2}
-  end;
 maybe_add_content_length(Request) ->
-  Request.
+  Body = maps:get(body, Request, <<>>),
+  Length = iolist_size(Body),
+  Header = mhttp_request:header(Request),
+  Header2 = mhttp_header:add_if_missing(Header, <<"Content-Length">>,
+                                        integer_to_binary(Length)),
+  Request#{header => Header2}.
 
 -spec redirect(mhttp:request(), mhttp:status(), uri:uri()) ->
         mhttp:request().

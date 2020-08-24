@@ -49,7 +49,7 @@ A client is a single connection to a HTTP server. While it can be directly
 used, it is strongly recommended to work with `mhttp:send_request` which
 relies on pools.
 
-## Client options
+## Options
 The following client options are available:
 
 - `host`: the hostname or IP address to connect to (default: `<<"localhost">>`).
@@ -69,8 +69,8 @@ and will create a new client for each new destination. Connections are kept
 alive and reused when possible.
 
 ## Configuration
-Pools are created by `mhttp_sup` supervisor based on the configuration of the
-`mhttp` application. Pools are identified by an atom. Each pool process is
+Pools are created by `mhttp_pool_sup` supervisor based on the configuration of
+the `mhttp` application. Pools are identified by an atom. Each pool process is
 registered as `mhttp_pool_<id>` where `<id>` is its identifier. For example,
 the process of the `default` pool is registered as `mhttp_pool_default`.
 
@@ -87,7 +87,7 @@ use a specific user agent:
                        #{header => [{<<"User-Agent">>, <<"Example/1.0">>}]}}}}]}].
 ```
 
-## Pool options
+## Options
 The following pool options are available:
 
 - `client_options`: the set of client options used for every client in the
@@ -97,3 +97,33 @@ The following pool options are available:
 ## Usage
 The `pool` request option is used to select which pool will be used to send
 the request. If the option is not provided, the `default` pool is used.
+
+# Server
+A server handles incoming HTTP requests. Each server spawns a set of
+connection acceptors.
+
+## Options
+The following server options are available:
+
+- `address`: the inet address the server to listen on (default: `loopback`).
+- `port`: the port number the server to listen on.
+- `tcp_options`: a list of `gen_tcp` listen options to apply.
+
+## Configuration
+Servers are created by `mhttp_server_sup` supervisor based on the
+configuration of the `mhttp` application. Servers are identified by an
+atom. Each server process is registered as `mhttp_server_<id>` where `<id>` is
+its identifier. For example, the process of the `default` server is registered
+as `mhttp_server_default`.
+
+The `default` server is created with default options if application
+configuration does not contain a server with that identifier.
+
+The following example configures a server named `example`.
+
+```erlang
+[{mhttp,
+  [{servers,
+    #{example => #{address => loopback,
+                   port => 8080}}}]}].
+```

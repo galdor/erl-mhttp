@@ -21,7 +21,7 @@
 
 -spec start_link(mhttp_acceptor:options()) -> supervisor:startlink_ret().
 start_link(Options) ->
-  supervisor:start_link({local, ?MODULE}, ?MODULE, [Options]).
+  supervisor:start_link(?MODULE, [Options]).
 
 init([Options]) ->
   ChildSpec = #{id => mhttp_acceptor,
