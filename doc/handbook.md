@@ -113,11 +113,8 @@ The following server options are available:
 Servers are created by `mhttp_server_sup` supervisor based on the
 configuration of the `mhttp` application. Servers are identified by an
 atom. Each server process is registered as `mhttp_server_<id>` where `<id>` is
-its identifier. For example, the process of the `default` server is registered
-as `mhttp_server_default`.
-
-The `default` server is created with default options if application
-configuration does not contain a server with that identifier.
+its identifier. For example, the process of the `test` server would be
+registered as `mhttp_server_test`.
 
 The following example configures a server named `example`.
 
