@@ -18,7 +18,8 @@
 
 -behaviour(gen_server).
 
--export([process_name/1, start_link/1, start_link/2]).
+-export([process_name/1, start_link/1, start_link/2,
+         set_router/2, find_route/2]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
 -export_type([server_name/0, server_ref/0, options/0]).
@@ -31,7 +32,8 @@
                      tcp_options => [gen_tcp:listen_option()]}.
 
 -type state() :: #{options := options(),
-                   socket := inet:socket()}.
+                   socket := inet:socket(),
+                   router => mhttp_router:router()}.
 
 -spec process_name(mhttp:server_id()) -> atom().
 process_name(Id) ->
@@ -43,10 +45,19 @@ process_name(Id) ->
 start_link(Options) ->
   gen_server:start_link(?MODULE, [Options], []).
 
--spec start_link(mhttp:server_name(), options()) -> Result when
+-spec start_link(server_name(), options()) -> Result when
     Result :: {ok, pid()} | ignore | {error, term()}.
 start_link(Name, Options) ->
   gen_server:start_link(Name, ?MODULE, [Options], []).
+
+-spec set_router(server_ref(), mhttp_router:router()) -> ok.
+set_router(Ref, Router) ->
+  gen_server:call(Ref, {set_router, Router}, infinity).
+
+-spec find_route(server_ref(), mhttp:request()) ->
+        {mhttp_router:route(), mhttp_router:request_context()}.
+find_route(Ref, Request) ->
+  gen_server:call(Ref, {find_route, Request}, infinity).
 
 init([Options]) ->
   logger:update_process_metadata(#{domain => [mhttp, server]}),
@@ -59,6 +70,16 @@ terminate(Reason, State = #{socket := Socket}) ->
   terminate(Reason, maps:remove(socket, State));
 terminate(_Reason, _State) ->
   ok.
+
+handle_call({set_router, Router}, _From, State) ->
+  {reply, ok, State#{router => Router}};
+
+handle_call({find_route, Request}, _From, State = #{router := Router}) ->
+  {reply, mhttp_router:find_route(Router, Request), State};
+handle_call({find_route, _Request}, _From, State) ->
+  Route = {unavailable_service,
+           fun mhttp_handlers:unavailable_service_handler/2},
+  {reply, {Route, #{}}, State};
 
 handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),
@@ -94,6 +115,6 @@ listen(Options) ->
 
 -spec spawn_acceptors(state()) -> ok.
 spawn_acceptors(#{socket := Socket}) ->
-  AcceptorOptions = #{socket => Socket},
+  AcceptorOptions = #{server_pid => self(), socket => Socket},
   {ok, AcceptorSup} = mhttp_acceptor_sup:start_link(AcceptorOptions),
   mhttp_acceptor_sup:start_children(AcceptorSup, 5).

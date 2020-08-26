@@ -18,20 +18,22 @@
 
 -behaviour(gen_server).
 
--export([start_link/0]).
+-export([start_link/1]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
--type state() :: #{socket => inet:socket(),
+-type state() :: #{server_pid := pid(),
+                   socket => inet:socket(),
                    parser := mhttp_parser:parser()}.
 
--spec start_link() -> Result when
+-spec start_link(ServerPid :: pid()) -> Result when
     Result :: {ok, pid()} | ignore | {error, term()}.
-start_link() ->
-  gen_server:start_link(?MODULE, [], []).
+start_link(ServerPid) ->
+  gen_server:start_link(?MODULE, [ServerPid], []).
 
-init([]) ->
+init([ServerPid]) ->
   logger:update_process_metadata(#{domain => [mhttp, connection]}),
-  {ok, #{parser => mhttp_parser:new(request)}}.
+  {ok, #{server_pid => ServerPid,
+         parser => mhttp_parser:new(request)}}.
 
 terminate(Reason, State = #{socket := Socket}) ->
   gen_tcp:close(Socket),
@@ -77,11 +79,24 @@ handle_info(Msg, State) ->
 -spec process_request(mhttp:request(), state()) -> state().
 process_request(Request, State) ->
   ?LOG_DEBUG("received request ~p", [Request]),
-  Response0 = #{status => 200}, % TODO request handling
+  Response0 = call_route(State, Request),
   Response = finalize_response(State, Response0),
   ?LOG_DEBUG("sending response ~p", [Response]),
   send_response(Response, State),
   State.
+
+-spec call_route(state(), mhttp:request()) -> mhttp:response().
+call_route(#{server_pid := ServerPid}, Request) ->
+  try
+    {{_, Handler}, MatchData} = mhttp_server:find_route(ServerPid, Request),
+    Handler(Request, MatchData)
+  catch
+    error:Reason:Trace ->
+      ?LOG_ERROR("handler error ~p ~p", [Reason, Trace]),
+      #{status => 500, body => "Internal server error."};
+    throw:{response, Response} ->
+      Response
+  end.
 
 -spec finalize_response(state(), mhttp:response()) -> mhttp:response().
 finalize_response(_State, Response) ->

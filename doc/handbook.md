@@ -9,7 +9,6 @@ The `mhttp:send_request/1` and `mhttp:send_request/2` functions are used to
 send requests.
 
 Example:
-
 ```erlang
 mhttp:send_request(#{method => get, target => <<"http://example.com">>},
                    #{pool => default})
@@ -108,6 +107,8 @@ The following server options are available:
 - `address`: the inet address the server to listen on (default: `loopback`).
 - `port`: the port number the server to listen on.
 - `tcp_options`: a list of `gen_tcp` listen options to apply.
+- `router_options`: a map of options to use for the router associated with the
+  server.
 
 ## Configuration
 Servers are created by `mhttp_server_sup` supervisor based on the
@@ -124,3 +125,43 @@ The following example configures a server named `example`.
     #{example => #{address => loopback,
                    port => 8080}}}]}].
 ```
+
+## Handling routes
+The `mhttp:set_router/2` function is used to set the router associated with a
+server.
+
+For example, assuming that there is a server identified as `example`:
+```erlang
+Handler = fun (_Request, _Context) ->
+              #{status => 200, body => <<"Hello world!\n">>}
+          end,
+Router = #{routes => [{<<"/">>, Handler}]},
+mhttp:set_router(example, Router).
+```
+
+Until a router has been set, a server will return an `unavailable_service`
+route. The default handler for this route returns a HTTP 503 response.
+
+# Router
+A router is a list of HTTP request patterns and request handlers. When a
+request is received the router is used to find the first pattern matching the
+request and to execute the corresponding action.
+
+A router is a map containing the following fields:
+
+- `routes`: a list of routes (mandatory).
+- `default_route`: a route which will be returned if no route matches a
+  request.
+
+## Routes
+Each route is a tuple `{Pattern, Handler}`.
+
+**TODO example**
+
+All new routes are added to the end of the route list.
+
+## Patterns
+**TODO**
+
+## Handlers
+**TODO**

@@ -35,7 +35,7 @@ server_child_specs() ->
             end,
             [], ServerSpecs).
 
--spec server_child_spec(atom(), mhttp_server:options()) ->
+-spec server_child_spec(mhttp:server_id(), mhttp_server:options()) ->
         supervisor:child_spec().
 server_child_spec(ChildId, Options) ->
   Name = mhttp_server:process_name(ChildId),

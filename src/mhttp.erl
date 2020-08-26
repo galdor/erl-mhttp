@@ -15,6 +15,8 @@
 -module(mhttp).
 
 -export([send_request/1, send_request/2,
+         set_router/2,
+         path_variable/2,
          header_name_equal/2]).
 
 -export_type([gen_server_name/0, gen_server_ref/0,
@@ -24,7 +26,10 @@
               response/0,
               method/0, target/0, version/0, status/0,
               header_name/0, header_value/0, header_field/0,
-              header/0, body/0]).
+              header/0, body/0,
+              route_pattern/0, route/0,
+              handler_fun/0, handler/0,
+              request_context/0]).
 
 -type gen_server_name() :: {local, term()}
                          | {global, term()}
@@ -37,6 +42,7 @@
                         | pid().
 
 -type pool_id() :: atom().
+-type server_id() :: atom().
 
 -type host() :: inet:hostname() | inet:ip_address().
 
@@ -78,16 +84,41 @@
 
 -type body() :: iodata().
 
--spec send_request(mhttp:request()) -> {ok, mhttp:response()} | {error, term()}.
+-type route_pattern() :: default
+                       | unavailable_service
+                       | mhttp_patterns:pattern().
+-type route() :: {route:pattern(), handler()}.
+
+-type handler_fun() :: fun((request(), request_context()) -> response()).
+-type handler() :: handler_fun().
+
+-type request_context() :: #{path_variables => mhttp_patterns:path_variables()}.
+
+-spec send_request(request()) -> {ok, response()} | {error, term()}.
 send_request(Request) ->
   send_request(Request, #{}).
 
--spec send_request(mhttp:request(), mhttp:request_options()) ->
-        {ok, mhttp:response()} | {error, term()}.
+-spec send_request(request(), request_options()) ->
+        {ok, response()} | {error, term()}.
 send_request(Request, Options) ->
   PoolId = maps:get(pool, Options, default),
   PoolRef = mhttp_pool:process_name(PoolId),
   mhttp_pool:send_request(PoolRef, Request, Options).
+
+-spec set_router(server_id(), mhttp_router:router()) -> ok.
+set_router(ServerId, Router) ->
+  ServerRef = mhttp_server:process_name(ServerId),
+  mhttp_server:set_router(ServerRef, Router).
+
+-spec path_variable(request_context(), mhttp_patterns:path_variable_name()) ->
+        mhttp_patterns:path_variable_value().
+path_variable(#{path_variables := Variables}, Name) ->
+  case maps:find(Name, Variables) of
+    {ok, Value} ->
+      Value;
+    error ->
+      error({unknown_path_variable, Name})
+  end.
 
 -spec header_name_equal(header_name(), header_name()) -> boolean().
 header_name_equal(N1, N2) ->
