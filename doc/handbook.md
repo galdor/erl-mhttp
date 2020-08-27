@@ -127,8 +127,8 @@ The following example configures a server named `example`.
 ```
 
 ## Handling routes
-The `mhttp:set_router/2` function is used to set the router associated with a
-server.
+The `mhttp:set_server_router/2` function is used to set the router associated
+with a server.
 
 For example, assuming that there is a server identified as `example`:
 ```erlang
@@ -136,7 +136,7 @@ Handler = fun (_Request, _Context) ->
               #{status => 200, body => <<"Hello world!\n">>}
           end,
 Router = #{routes => [{<<"/">>, Handler}]},
-mhttp:set_router(example, Router).
+mhttp:set_server_router(example, Router).
 ```
 
 Until a router has been set, a server will return an `unavailable_service`

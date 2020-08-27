@@ -15,7 +15,7 @@
 -module(mhttp).
 
 -export([send_request/1, send_request/2,
-         set_router/2,
+         set_server_router/2,
          path_variable/2,
          header_name_equal/2]).
 
@@ -105,8 +105,8 @@ send_request(Request, Options) ->
   PoolRef = mhttp_pool:process_name(PoolId),
   mhttp_pool:send_request(PoolRef, Request, Options).
 
--spec set_router(server_id(), mhttp_router:router()) -> ok.
-set_router(ServerId, Router) ->
+-spec set_server_router(server_id(), mhttp_router:router()) -> ok.
+set_server_router(ServerId, Router) ->
   ServerRef = mhttp_server:process_name(ServerId),
   mhttp_server:set_router(ServerRef, Router).
 
