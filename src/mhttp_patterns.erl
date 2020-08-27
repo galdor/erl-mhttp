@@ -47,6 +47,8 @@ match({PathPattern, Method}, Request) ->
 match({_PathPattern, Method, _Filters}, #{method := RequestMethod}) when
     Method =/= RequestMethod ->
   false;
+match(Pattern, Request = #{target := Target}) when is_binary(Target) ->
+  match(Pattern, Request#{target => uri:parse(Target)});
 match({PathPattern, _Method, Filters}, Request = #{target := Target}) ->
   case match_path_pattern(PathPattern, mhttp_uri:path(Target)) of
     {true, Variables} ->
