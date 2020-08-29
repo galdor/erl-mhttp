@@ -101,11 +101,13 @@ handle_info(Msg, State) ->
 listen(Options) ->
   Address = maps:get(address, Options, loopback),
   Port = maps:get(port, Options, 80),
-  RequiredTCPOptions = [{ip, Address},
-                        {reuseaddr, true},
-                        {active, false},
-                        binary],
-  TCPOptions = RequiredTCPOptions ++ maps:get(tcp_options, Options, []),
+  DefaultTCPOptions = [{ip, Address},
+                       {reuseaddr, true},
+                       {active, false},
+                       {send_timeout, 5000},
+                       {send_timeout_close, true},
+                       binary],
+  TCPOptions = DefaultTCPOptions ++ maps:get(tcp_options, Options, []),
   case gen_tcp:listen(Port, TCPOptions) of
     {ok, Socket} ->
       {ok, {LocalAddress, LocalPort}} = inet:sockname(Socket),
