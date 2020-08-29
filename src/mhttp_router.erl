@@ -23,7 +23,7 @@
 
 -spec default_route() -> mhttp:route().
 default_route() ->
-  {default, fun mhttp_handlers:default_handler/2}.
+  {default, fun mhttp_handlers:not_found_handler/2}.
 
 -spec find_route(router(), mhttp:request()) ->
         {mhttp:route(), mhttp:request_context()}.

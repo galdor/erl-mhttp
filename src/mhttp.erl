@@ -28,7 +28,7 @@
               header_name/0, header_value/0, header_field/0,
               header/0, body/0,
               route_pattern/0, route/0,
-              handler_fun/0, handler/0,
+              handler_fun/0, handler/0, error_handler/0,
               request_context/0]).
 
 -type gen_server_name() :: {local, term()}
@@ -91,6 +91,9 @@
 
 -type handler_fun() :: fun((request(), request_context()) -> response()).
 -type handler() :: handler_fun().
+-type error_handler() :: fun((request(), request_context(),
+                              Reason :: term(), [erlang:stack_item()]) ->
+                                response()).
 
 -type request_context() :: #{path_variables => mhttp_patterns:path_variables()}.
 

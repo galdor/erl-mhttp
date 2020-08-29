@@ -23,10 +23,10 @@
 
 -export_type([options/0]).
 
--type options() :: #{server_pid := pid(),
-                     socket => inet:socket()}.
+-type options() :: #{socket => inet:socket(),
+                     connection_options := mhttp_connection:options()}.
 
--type state() :: #{server_pid := pid(),
+-type state() :: #{options := options(),
                    socket => inet:socket()}.
 
 -spec start_link(options()) -> Result when
@@ -34,10 +34,10 @@
 start_link(Options) ->
   gen_server:start_link(?MODULE, [Options], []).
 
-init([#{server_pid := ServerPid, socket := Socket}]) ->
+init([Options = #{socket := Socket}]) ->
   logger:update_process_metadata(#{domain => [mhttp, acceptor]}),
-  State = #{server_pid => ServerPid,
-            socket => Socket},
+  process_flag(trap_exit, true),
+  State = #{options => Options, socket => Socket},
   gen_server:cast(self(), accept),
   {ok, State}.
 
@@ -57,6 +57,8 @@ handle_cast(accept, State = #{socket := Socket}) ->
     {error, timeout} ->
       gen_server:cast(self(), accept),
       {noreply, State};
+    {error, closed} ->
+      {noreply, State};
     {error, Reason} ->
       ?LOG_ERROR("cannot accept connection: ~p", [Reason]),
       exit({accept_failure, Reason})
@@ -66,13 +68,18 @@ handle_cast(Msg, State) ->
   ?LOG_WARNING("unhandled cast ~p", [Msg]),
   {noreply, State}.
 
+handle_info({'EXIT', Pid, Reason}, State) ->
+  ?LOG_WARNING("connection ~p exited (~p)", [Pid, Reason]),
+  {noreply, State};
+
 handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
   {noreply, State}.
 
 -spec spawn_connection(state(), inet:socket()) -> ok.
-spawn_connection(#{server_pid := ServerPid}, Socket) ->
-  {ok, ConnPid} = mhttp_connection:start_link(ServerPid),
+spawn_connection(#{options := Options}, Socket) ->
+  ConnOptions = maps:get(connection_options, Options),
+  {ok, ConnPid} = mhttp_connection:start_link(ConnOptions),
   gen_tcp:controlling_process(Socket, ConnPid),
   gen_server:cast(ConnPid, {socket, Socket}),
   ok.

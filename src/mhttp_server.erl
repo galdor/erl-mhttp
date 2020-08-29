@@ -29,7 +29,9 @@
 
 -type options() :: #{address => inet:socket_address(),
                      port => inets:port_number(),
-                     tcp_options => [gen_tcp:listen_option()]}.
+                     tcp_options => [gen_tcp:listen_option()],
+                     unavailable_service_handler => mhttp:handler(),
+                     error_handler => mhttp:error_handler()}.
 
 -type state() :: #{options := options(),
                    socket := inet:socket(),
@@ -76,9 +78,10 @@ handle_call({set_router, Router}, _From, State) ->
 
 handle_call({find_route, Request}, _From, State = #{router := Router}) ->
   {reply, mhttp_router:find_route(Router, Request), State};
-handle_call({find_route, _Request}, _From, State) ->
-  Route = {unavailable_service,
-           fun mhttp_handlers:unavailable_service_handler/2},
+handle_call({find_route, _Request}, _From, State = #{options := Options}) ->
+  Handler = maps:get(unavailable_service_handler, Options,
+                     fun mhttp_handlers:unavailable_service_handler/2),
+  Route = {unavailable_service, Handler},
   {reply, {Route, #{}}, State};
 
 handle_call(Msg, From, State) ->
@@ -114,7 +117,15 @@ listen(Options) ->
   end.
 
 -spec spawn_acceptors(state()) -> ok.
-spawn_acceptors(#{socket := Socket}) ->
-  AcceptorOptions = #{server_pid => self(), socket => Socket},
+spawn_acceptors(State = #{socket := Socket}) ->
+  ConnOptions = connection_options(State),
+  AcceptorOptions = #{socket => Socket, connection_options => ConnOptions},
   {ok, AcceptorSup} = mhttp_acceptor_sup:start_link(AcceptorOptions),
   mhttp_acceptor_sup:start_children(AcceptorSup, 5).
+
+-spec connection_options(state()) -> mhttp_connection:options().
+connection_options(#{options := Options}) ->
+  ErrorHandler = maps:get(error_handler, Options,
+                          fun mhttp_handlers:error_handler/4),
+  #{server_pid => self(),
+    error_handler => ErrorHandler}.

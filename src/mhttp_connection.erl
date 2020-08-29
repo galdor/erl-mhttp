@@ -21,18 +21,23 @@
 -export([start_link/1]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
--type state() :: #{server_pid := pid(),
+-export_type([options/0]).
+
+-type options() :: #{server_pid := pid(),
+                     error_handler := mhttp:error_handler()}.
+
+-type state() :: #{options := options(),
                    socket => inet:socket(),
                    parser := mhttp_parser:parser()}.
 
--spec start_link(ServerPid :: pid()) -> Result when
+-spec start_link(options()) -> Result when
     Result :: {ok, pid()} | ignore | {error, term()}.
-start_link(ServerPid) ->
-  gen_server:start_link(?MODULE, [ServerPid], []).
+start_link(Options) ->
+  gen_server:start_link(?MODULE, [Options], []).
 
-init([ServerPid]) ->
+init([Options]) ->
   logger:update_process_metadata(#{domain => [mhttp, connection]}),
-  {ok, #{server_pid => ServerPid,
+  {ok, #{options => Options,
          parser => mhttp_parser:new(request)}}.
 
 terminate(Reason, State = #{socket := Socket}) ->
@@ -86,14 +91,16 @@ process_request(Request, State) ->
   State.
 
 -spec call_route(state(), mhttp:request()) -> mhttp:response().
-call_route(#{server_pid := ServerPid}, Request) ->
+call_route(#{options := Options}, Request) ->
+  ServerPid = maps:get(server_pid, Options),
   try
     {{_, Handler}, MatchData} = mhttp_server:find_route(ServerPid, Request),
     Handler(Request, MatchData)
   catch
     error:Reason:Trace ->
       ?LOG_ERROR("handler error ~p ~p", [Reason, Trace]),
-      #{status => 500, body => "Internal server error."};
+      ErrHandler = maps:get(error_handler, Options),
+      ErrHandler(Request, #{}, Reason, Trace);
     throw:{response, Response} ->
       Response
   end.

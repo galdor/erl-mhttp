@@ -14,11 +14,12 @@
 
 -module(mhttp_handlers).
 
--export([default_handler/2, unavailable_service_handler/2]).
+-export([not_found_handler/2, unavailable_service_handler/2,
+         error_handler/4]).
 
--spec default_handler(mhttp:request(), mhttp:request_context()) ->
+-spec not_found_handler(mhttp:request(), mhttp:request_context()) ->
         mhttp:response().
-default_handler(_Request, _Context) ->
+not_found_handler(_Request, _Context) ->
   #{status => 404,
     header => [{<<"Content-Type">>, <<"text/plain">>}],
     body => <<"Not found.\n">>}.
@@ -30,3 +31,15 @@ unavailable_service_handler(_Request, _Context) ->
     header => [{<<"Content-Type">>, <<"text/plain">>}],
     body => <<"Service unavailable.\n">>}.
 
+-spec error_handler(mhttp:request(), mhttp:request_context(),
+                    Reason :: term(), Trace :: [erlang:stack_item()]) ->
+        mhttp:response().
+error_handler(Request, Context, Reason, Trace) ->
+  Body = [io_lib:format(<<"~s\n~p\n\n">>, [Title, Datum]) ||
+           {Title, Datum} <- [{<<"REQUEST">>, Request},
+                              {<<"CONTEXT">>, Context},
+                              {<<"REASON">>, Reason},
+                              {<<"TRACE">>, Trace}]],
+  #{status => 500,
+    header => [{<<"Content-Type">>, <<"text/plain">>}],
+    body => Body}.
