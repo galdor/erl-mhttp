@@ -68,6 +68,8 @@ handle_cast(Msg, State) ->
   ?LOG_WARNING("unhandled cast ~p", [Msg]),
   {noreply, State}.
 
+handle_info({'EXIT', Pid, normal}, State) ->
+  {noreply, State};
 handle_info({'EXIT', Pid, Reason}, State) ->
   ?LOG_WARNING("connection ~p exited (~p)", [Pid, Reason]),
   {noreply, State};

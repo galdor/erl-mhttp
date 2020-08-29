@@ -116,6 +116,9 @@ The following server options are available:
   execution of the original route handler. The default handler sends a HTTP
   500 plain text response containing information about the request received
   and the error which was signaled.
+- `idle_timeout`: a time in milliseconds for each connection to wait for
+  activity before closing (default: 10'000ms). The associated timer is reset
+  each time the server receives data from the client.
 
 ## Configuration
 Servers are created by `mhttp_server_sup` supervisor based on the

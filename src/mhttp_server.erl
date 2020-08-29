@@ -32,7 +32,8 @@
                      tcp_options => [gen_tcp:listen_option()],
                      nb_acceptors => pos_integer(),
                      unavailable_service_handler => mhttp:handler(),
-                     error_handler => mhttp:error_handler()}.
+                     error_handler => mhttp:error_handler(),
+                     idle_timeout => pos_integer()}.
 
 -type state() :: #{options := options(),
                    socket := inet:socket(),
@@ -131,5 +132,7 @@ spawn_acceptors(State = #{options := Options, socket := Socket}) ->
 connection_options(#{options := Options}) ->
   ErrorHandler = maps:get(error_handler, Options,
                           fun mhttp_handlers:error_handler/4),
+  IdleTimeout = maps:get(idle_timeout, Options, 10_000),
   #{server_pid => self(),
-    error_handler => ErrorHandler}.
+    error_handler => ErrorHandler,
+    idle_timeout => IdleTimeout}.

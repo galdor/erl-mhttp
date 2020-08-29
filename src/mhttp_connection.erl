@@ -24,11 +24,13 @@
 -export_type([options/0]).
 
 -type options() :: #{server_pid := pid(),
-                     error_handler := mhttp:error_handler()}.
+                     error_handler := mhttp:error_handler(),
+                     idle_timeout := pos_integer()}.
 
 -type state() :: #{options := options(),
                    socket => inet:socket(),
-                   parser := mhttp_parser:parser()}.
+                   parser := mhttp_parser:parser(),
+                   idle_timer => reference()}.
 
 -spec start_link(options()) -> Result when
     Result :: {ok, pid()} | ignore | {error, term()}.
@@ -37,8 +39,9 @@ start_link(Options) ->
 
 init([Options]) ->
   logger:update_process_metadata(#{domain => [mhttp, connection]}),
-  {ok, #{options => Options,
-         parser => mhttp_parser:new(request)}}.
+  State = #{options => Options,
+            parser => mhttp_parser:new(request)},
+  {ok, State}.
 
 terminate(Reason, State = #{socket := Socket}) ->
   gen_tcp:close(Socket),
@@ -53,20 +56,25 @@ handle_call(Msg, From, State) ->
 handle_cast({socket, Socket}, State) ->
   State2 = State#{socket => Socket},
   set_socket_active(State2, 1),
-  {noreply, State2};
+  {noreply, schedule_idle_timeout(State2)};
 
 handle_cast(Msg, State) ->
   ?LOG_WARNING("unhandled cast ~p", [Msg]),
   {noreply, State}.
 
+handle_info(idle_timeout, State) ->
+  ?LOG_INFO("connection idle, exiting"),
+  {stop, normal, State};
+
 handle_info({tcp, _Socket, Data}, State = #{parser := Parser}) ->
+  State2 = schedule_idle_timeout(State),
   case mhttp_parser:parse(Parser, Data) of
     {ok, Request, Parser2} ->
-      State2 = process_request(Request, State#{parser => Parser2}),
-      set_socket_active(State, 1),
-      {noreply, State2};
+      State3 = process_request(Request, State#{parser => Parser2}),
+      set_socket_active(State3, 1),
+      {noreply, State3};
     {more, Parser2} ->
-      set_socket_active(State, 1),
+      set_socket_active(State2, 1),
       {noreply, State#{parser => Parser2}}
   end;
 
@@ -122,3 +130,15 @@ send_response(Response, #{socket := Socket}) ->
 set_socket_active(#{socket := Socket}, Active) ->
   ok = inet:setopts(Socket, [{active, Active}]),
   ok.
+
+-spec schedule_idle_timeout(state()) -> state().
+schedule_idle_timeout(State = #{options := Options}) ->
+  case maps:find(idle_timer, State) of
+    {ok, T} ->
+      erlang:cancel_timer(T);
+    error ->
+      ok
+  end,
+  Timeout = maps:get(idle_timeout, Options),
+  Timer = erlang:send_after(Timeout, self(), idle_timeout),
+  State#{idle_timer => Timer}.
