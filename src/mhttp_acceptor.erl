@@ -51,9 +51,18 @@ handle_call(Msg, From, State) ->
 handle_cast(accept, State = #{socket := Socket}) ->
   case gen_tcp:accept(Socket, 5000) of
     {ok, ConnSocket} ->
-      spawn_connection(State, ConnSocket),
-      gen_server:cast(self(), accept),
-      {noreply, State};
+      case inet:peername(ConnSocket) of
+        {ok, {ConnAddress, ConnPort}} ->
+          ?LOG_DEBUG("connection accepted from ~s:~b",
+                     [inet:ntoa(ConnAddress), ConnPort]),
+          spawn_connection(State, ConnSocket, ConnAddress, ConnPort),
+          gen_server:cast(self(), accept),
+          {noreply, State};
+        {error, Reason} ->
+          ?LOG_ERROR("cannot obtain peer address and port: ~p", Reason),
+          gen_server:cast(self(), accept),
+          {noreply, State}
+      end;
     {error, timeout} ->
       gen_server:cast(self(), accept),
       {noreply, State};
@@ -68,7 +77,7 @@ handle_cast(Msg, State) ->
   ?LOG_WARNING("unhandled cast ~p", [Msg]),
   {noreply, State}.
 
-handle_info({'EXIT', Pid, normal}, State) ->
+handle_info({'EXIT', _Pid, normal}, State) ->
   {noreply, State};
 handle_info({'EXIT', Pid, Reason}, State) ->
   ?LOG_WARNING("connection ~p exited (~p)", [Pid, Reason]),
@@ -78,9 +87,11 @@ handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
   {noreply, State}.
 
--spec spawn_connection(state(), inet:socket()) -> ok.
-spawn_connection(#{options := Options}, Socket) ->
-  ConnOptions = maps:get(connection_options, Options),
+-spec spawn_connection(state(), inet:socket(),
+                       inet:ip_address(), inet:port_number()) -> ok.
+spawn_connection(#{options := Options}, Socket, Address, Port) ->
+  ConnOptions0 = maps:get(connection_options, Options),
+  ConnOptions = ConnOptions0#{address => Address, port => Port},
   {ok, ConnPid} = mhttp_connection:start_link(ConnOptions),
   gen_tcp:controlling_process(Socket, ConnPid),
   gen_server:cast(ConnPid, {socket, Socket}),

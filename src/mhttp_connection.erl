@@ -25,7 +25,9 @@
 
 -type options() :: #{server_pid := pid(),
                      error_handler := mhttp:error_handler(),
-                     idle_timeout := pos_integer()}.
+                     idle_timeout := pos_integer(),
+                     address => inet:address(),
+                     port => inet:port_number()}.
 
 -type state() :: #{options := options(),
                    socket => inet:socket(),
@@ -102,8 +104,11 @@ process_request(Request, State) ->
 call_route(#{options := Options}, Request) ->
   ServerPid = maps:get(server_pid, Options),
   try
-    {{_, Handler}, MatchData} = mhttp_server:find_route(ServerPid, Request),
-    Handler(Request, MatchData)
+    Context = #{client_address => maps:get(address, Options),
+                client_port => maps:get(port, Options)},
+    {{_, Handler}, Context2} = mhttp_server:find_route(ServerPid, Request,
+                                                       Context),
+    Handler(Request, Context2)
   catch
     error:Reason:Trace ->
       ?LOG_ERROR("handler error ~p ~p", [Reason, Trace]),
