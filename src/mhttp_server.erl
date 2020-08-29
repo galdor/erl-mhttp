@@ -30,6 +30,7 @@
 -type options() :: #{address => inet:socket_address(),
                      port => inets:port_number(),
                      tcp_options => [gen_tcp:listen_option()],
+                     nb_acceptors => pos_integer(),
                      unavailable_service_handler => mhttp:handler(),
                      error_handler => mhttp:error_handler()}.
 
@@ -117,11 +118,12 @@ listen(Options) ->
   end.
 
 -spec spawn_acceptors(state()) -> ok.
-spawn_acceptors(State = #{socket := Socket}) ->
+spawn_acceptors(State = #{options := Options, socket := Socket}) ->
   ConnOptions = connection_options(State),
   AcceptorOptions = #{socket => Socket, connection_options => ConnOptions},
   {ok, AcceptorSup} = mhttp_acceptor_sup:start_link(AcceptorOptions),
-  mhttp_acceptor_sup:start_children(AcceptorSup, 5).
+  NbAcceptors = maps:get(nb_acceptors, Options, 5),
+  mhttp_acceptor_sup:start_children(AcceptorSup, NbAcceptors).
 
 -spec connection_options(state()) -> mhttp_connection:options().
 connection_options(#{options := Options}) ->

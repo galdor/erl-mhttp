@@ -107,8 +107,8 @@ The following server options are available:
 - `address`: the inet address the server to listen on (default: `loopback`).
 - `port`: the port number the server to listen on.
 - `tcp_options`: a list of `gen_tcp` listen options to apply.
-- `router_options`: a map of options to use for the router associated with the
-  server.
+- `nb_acceptors`: the number of connection acceptor processes to start
+  (default: 5).
 
 ## Configuration
 Servers are created by `mhttp_server_sup` supervisor based on the
