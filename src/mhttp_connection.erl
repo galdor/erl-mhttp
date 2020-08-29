@@ -108,6 +108,7 @@ call_route(#{options := Options}, Request) ->
 -spec finalize_response(state(), mhttp:response()) -> mhttp:response().
 finalize_response(_State, Response) ->
   Funs = [fun mhttp_response:ensure_reason/1,
+          fun mhttp_response:ensure_date/1,
           fun mhttp_response:maybe_add_content_length/1],
   lists:foldl(fun (Fun, R) -> Fun(R) end, Response, Funs).
 

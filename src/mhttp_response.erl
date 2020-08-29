@@ -15,7 +15,7 @@
 -module(mhttp_response).
 
 -export([header/1,
-         ensure_reason/1, maybe_add_content_length/1,
+         ensure_reason/1, ensure_date/1, maybe_add_content_length/1,
          is_redirection/1]).
 
 -spec header(mhttp:response()) -> mhttp:header().
@@ -27,6 +27,18 @@ ensure_reason(Response = #{reason := _}) ->
   Response;
 ensure_reason(Response = #{status := Status}) ->
   Response#{reason => mhttp_statuses:reason(Status)}.
+
+-spec ensure_date(mhttp:response()) -> mhttp:response().
+ensure_date(Response) ->
+  Header = mhttp_response:header(Response),
+  case mhttp_header:contains(Header, <<"Date">>) of
+    true ->
+      Response;
+    false ->
+      Now = erlang:universaltime(),
+      Value = mhttp_calendar:format_rfc7231_datetime(Now),
+      Response#{header => mhttp_header:add(Header, <<"Date">>, Value)}
+  end.
 
 -spec maybe_add_content_length(mhttp:response()) -> mhttp:response().
 maybe_add_content_length(Response) ->
