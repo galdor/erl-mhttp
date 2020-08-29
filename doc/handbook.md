@@ -109,6 +109,13 @@ The following server options are available:
 - `tcp_options`: a list of `gen_tcp` listen options to apply.
 - `nb_acceptors`: the number of connection acceptor processes to start
   (default: 5).
+- `unavailable_service_handler`: the handler called when the server is not
+  available, for example before it has been assigned a router. The default
+  handler sends a HTTP 503 plain text response.
+- `error_handler`: the error handler called when an error is signaled during
+  execution of the original route handler. The default handler sends a HTTP
+  500 plain text response containing information about the request received
+  and the error which was signaled.
 
 ## Configuration
 Servers are created by `mhttp_server_sup` supervisor based on the
@@ -164,4 +171,7 @@ All new routes are added to the end of the route list.
 **TODO**
 
 ## Handlers
+**TODO**
+
+### Error handlers
 **TODO**
