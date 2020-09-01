@@ -28,8 +28,9 @@
               header_name/0, header_value/0, header_field/0,
               header/0, body/0,
               route_pattern/0, route/0,
+              middleware/0,
               handler_fun/0, handler/0, error_handler/0,
-              request_context/0]).
+              handler_context/0]).
 
 -type gen_server_name() :: {local, term()}
                          | {global, term()}
@@ -89,13 +90,18 @@
                        | mhttp_patterns:pattern().
 -type route() :: {route:pattern(), handler()}.
 
--type handler_fun() :: fun((request(), request_context()) -> response()).
+-type middleware() :: {module(), Args :: list()}
+                    | {preprocess, module(), Args :: list()}
+                    | {postprocess, module(), Args :: list()}.
+
+-type handler_fun() :: fun((request(), handler_context()) ->
+                              response() | {response() | handler_context()}).
 -type handler() :: handler_fun().
--type error_handler() :: fun((request(), request_context(),
+-type error_handler() :: fun((request(), handler_context(),
                               Reason :: term(), [erlang:stack_item()]) ->
                                 response()).
 
--type request_context() :: #{client_address => inet:address(),
+-type handler_context() :: #{client_address => inet:address(),
                              client_port => inet:port_number(),
                              path_variables => mhttp_patterns:path_variables()}.
 
@@ -115,7 +121,7 @@ set_server_router(ServerId, Router) ->
   ServerRef = mhttp_server:process_name(ServerId),
   mhttp_server:set_router(ServerRef, Router).
 
--spec path_variable(request_context(), mhttp_patterns:path_variable_name()) ->
+-spec path_variable(handler_context(), mhttp_patterns:path_variable_name()) ->
         mhttp_patterns:path_variable_value().
 path_variable(#{path_variables := Variables}, Name) ->
   case maps:find(Name, Variables) of

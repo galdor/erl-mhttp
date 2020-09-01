@@ -92,30 +92,98 @@ handle_info(Msg, State) ->
   {noreply, State}.
 
 -spec process_request(mhttp:request(), state()) -> state().
-process_request(Request, State) ->
+process_request(Request, State = #{options := Options}) ->
   ?LOG_DEBUG("received request ~p", [Request]),
-  Response0 = call_route(State, Request),
-  Response = finalize_response(State, Response0),
+  Response = try
+               Response0 = find_and_call_route(State, Request),
+               finalize_response(State, Response0)
+             catch
+               error:Reason:Trace ->
+                 ?LOG_ERROR("request processing error ~p ~p", [Reason, Trace]),
+                 ErrHandler = maps:get(error_handler, Options),
+                 ErrHandler(Request, #{}, Reason, Trace)
+               end,
   ?LOG_DEBUG("sending response ~p", [Response]),
   send_response(Response, State),
   State.
 
--spec call_route(state(), mhttp:request()) -> mhttp:response().
-call_route(#{options := Options}, Request) ->
+-spec find_and_call_route(state(), mhttp:request()) -> mhttp:response().
+find_and_call_route(#{options := Options}, Request) ->
   ServerPid = maps:get(server_pid, Options),
+  Context = #{client_address => maps:get(address, Options),
+              client_port => maps:get(port, Options)},
+  {Router, {_, Handler}, Context2} =
+    mhttp_server:find_route(ServerPid, Request, Context),
+  Middlewares = maps:get(middlewares, Router, []),
   try
-    Context = #{client_address => maps:get(address, Options),
-                client_port => maps:get(port, Options)},
-    {{_, Handler}, Context2} = mhttp_server:find_route(ServerPid, Request,
-                                                       Context),
-    Handler(Request, Context2)
+    call_route(Request, Context2, Handler, Middlewares)
   catch
     error:Reason:Trace ->
-      ?LOG_ERROR("handler error ~p ~p", [Reason, Trace]),
+      ?LOG_ERROR("request handling error ~p ~p", [Reason, Trace]),
       ErrHandler = maps:get(error_handler, Options),
       ErrHandler(Request, #{}, Reason, Trace);
     throw:{response, Response} ->
       Response
+  end.
+
+-spec call_route(mhttp:request(), mhttp:handler_context(), mhttp:handler(),
+                 [mhttp:middleware()]) ->
+        mhttp:response().
+call_route(Request, Context, Handler, Middlewares) ->
+  %% Preprocessing middlewares
+  PreMiddlewares = mhttp_middleware:preprocessing_middlewares(Middlewares),
+  {PreprocessedRequest, PreprocessedContext} =
+    lists:foldl(fun (M, {Req, Ctx}) ->
+                    call_preprocessing_middleware(M, Req, Ctx)
+                end, {Request, Context}, PreMiddlewares),
+  %% Handler
+  {Response, HandledContext} =
+    call_handler(Handler, PreprocessedRequest, PreprocessedContext),
+  %% Postprocessing middlewares
+  PostMiddlewares = mhttp_middleware:preprocessing_middlewares(Middlewares),
+  {_PostprocessedRequest, PostprocessedResponse, _PostprocessedContext} =
+    lists:foldl(fun (M, {Req, Res, Ctx}) ->
+                    call_postprocessing_middleware(M, Req, Res, Ctx)
+                end, {PreprocessedRequest, Response, HandledContext},
+                PostMiddlewares),
+  PostprocessedResponse.
+
+-spec call_handler(mhttp:handler(), mhttp:request(), mhttp:handler_context()) ->
+        {mhttp:response(), mhttp:handler_context()}.
+call_handler(Handler, Request, Context) ->
+  case Handler(Request, Context) of
+    {Response2, Context2} ->
+      {Response2, Context2};
+    Response2 ->
+      {Response2, Context}
+  end.
+
+-spec call_preprocessing_middleware(mhttp:middleware(), mhttp:request(),
+                                    mhttp:handler_context()) ->
+        {mhttp:request(), mhttp:handler_context()}.
+call_preprocessing_middleware({preprocess, Module, Args}, Request, Context) ->
+  call_preprocessing_middleware({Module, Args}, Request, Context);
+call_preprocessing_middleware({Module, Args}, Request, Context) ->
+  case Module:preprocess(Request, Context, Args) of
+    {Request2, Context2} ->
+      {Request2, Context2};
+    Request2 ->
+      {Request2, Context}
+  end.
+
+-spec call_postprocessing_middleware(mhttp:middleware(), mhttp:request(),
+                                     mhttp:handler_context(),
+                                     mhttp:response()) ->
+        {mhttp:response(), mhttp:handler_context()}.
+call_postprocessing_middleware({postprocess, Module, Args},
+                               Request, Context, Response) ->
+  call_postprocessing_middleware({Module, Args}, Request, Context, Response);
+call_postprocessing_middleware({Module, Args}, Request, Context, Response) ->
+  case Module:postprocess(Request, Context, Response, Args) of
+    {Response2, Context2} ->
+      {Response2, Context2};
+    Response2 ->
+      {Response2, Context}
   end.
 
 -spec finalize_response(state(), mhttp:response()) -> mhttp:response().

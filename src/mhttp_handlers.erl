@@ -17,21 +17,21 @@
 -export([not_found_handler/2, unavailable_service_handler/2,
          error_handler/4]).
 
--spec not_found_handler(mhttp:request(), mhttp:request_context()) ->
+-spec not_found_handler(mhttp:request(), mhttp:handler_context()) ->
         mhttp:response().
 not_found_handler(_Request, _Context) ->
   #{status => 404,
     header => [{<<"Content-Type">>, <<"text/plain">>}],
     body => <<"Not found.\n">>}.
 
--spec unavailable_service_handler(mhttp:request(), mhttp:request_context()) ->
+-spec unavailable_service_handler(mhttp:request(), mhttp:handler_context()) ->
         mhttp:response().
 unavailable_service_handler(_Request, _Context) ->
   #{status => 503,
     header => [{<<"Content-Type">>, <<"text/plain">>}],
     body => <<"Service unavailable.\n">>}.
 
--spec error_handler(mhttp:request(), mhttp:request_context(),
+-spec error_handler(mhttp:request(), mhttp:handler_context(),
                     Reason :: term(), Trace :: [erlang:stack_item()]) ->
         mhttp:response().
 error_handler(Request, Context, Reason, Trace) ->

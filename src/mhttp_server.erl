@@ -18,7 +18,7 @@
 
 -behaviour(gen_server).
 
--export([process_name/1, start_link/1, start_link/2,
+-export([process_name/1, start_link/1, start_link/2, stop/1,
          set_router/2, find_route/3]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
@@ -54,12 +54,16 @@ start_link(Options) ->
 start_link(Name, Options) ->
   gen_server:start_link(Name, ?MODULE, [Options], []).
 
+-spec stop(server_ref()) -> ok.
+stop(Ref) ->
+  gen_server:stop(Ref).
+
 -spec set_router(server_ref(), mhttp_router:router()) -> ok.
 set_router(Ref, Router) ->
   gen_server:call(Ref, {set_router, Router}, infinity).
 
--spec find_route(server_ref(), mhttp:request(), mhttp:request_context()) ->
-        {mhttp_router:route(), mhttp_router:request_context()}.
+-spec find_route(server_ref(), mhttp:request(), mhttp:handler_context()) ->
+        {mhttp_router:router(), mhttp_router:route(), mhttp:handler_context()}.
 find_route(Ref, Request, Context) ->
   gen_server:call(Ref, {find_route, Request, Context}, infinity).
 
@@ -80,13 +84,15 @@ handle_call({set_router, Router}, _From, State) ->
 
 handle_call({find_route, Request, Context}, _From,
             State = #{router := Router}) ->
-  {reply, mhttp_router:find_route(Router, Request, Context), State};
+  {Route, Context2} = mhttp_router:find_route(Router, Request, Context),
+  {reply, {Router, Route, Context2}, State};
 handle_call({find_route, _Request, Context}, _From,
             State = #{options := Options}) ->
   Handler = maps:get(unavailable_service_handler, Options,
                      fun mhttp_handlers:unavailable_service_handler/2),
+  Router = #{routes => []},
   Route = {unavailable_service, Handler},
-  {reply, {Route, Context}, State};
+  {reply, {Router, Route, Context}, State};
 
 handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),
