@@ -51,16 +51,16 @@ start_link(Name) ->
 start_link(Name, Options) ->
   gen_server:start_link(Name, ?MODULE, [Options], []).
 
--spec stop(mhttp:pool_ref()) -> ok.
+-spec stop(pool_ref()) -> ok.
 stop(Ref) ->
   gen_server:stop(Ref).
 
--spec send_request(mhttp:pool_ref(), mhttp:request()) ->
+-spec send_request(pool_ref(), mhttp:request()) ->
         {ok, mhttp:response()} | {error, term()}.
 send_request(Ref, Request) ->
   send_request(Ref, Request, #{}).
 
--spec send_request(mhttp:pool_ref(), mhttp:request(),
+-spec send_request(pool_ref(), mhttp:request(),
                    mhttp:request_options()) ->
         {ok, mhttp:response()} | {error, term()}.
 send_request(Ref, Request, Options) ->
