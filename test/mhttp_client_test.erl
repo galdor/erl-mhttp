@@ -40,15 +40,36 @@ client_test_() ->
        inets:stop(httpd, Pid),
        mhttp_pool:stop(mhttp_pool:process_name(test))
    end,
-   [fun simple_request/0]}.
+   [fun simple_request/0,
+    fun redirections/0]}.
 
 simple_request() ->
   URI = test_uri(#{path => <<"/">>}),
-  {ok, Response} = mhttp:send_request(#{method => get, target => URI},
-                                      #{pool => test}),
-  #{status := Status, body := Body} = Response,
-  ?assertEqual(200, Status),
-  ?assertEqual(<<"hello">>, Body).
+  {ok, Response} = send_request(#{method => get, target => URI}),
+  ?assertEqual(200, mhttp_response:status(Response)),
+  ?assertEqual(<<"hello">>, mhttp_response:body(Response)).
+
+redirections() ->
+  URI = test_uri(#{path => <<"/redirect-1">>}),
+  {ok, Response1} = send_request(#{method => get, target => URI}),
+  ?assertEqual(302, mhttp_response:status(Response1)),
+  {ok, Response2} = send_request(#{method => get, target => URI},
+                                 #{follow_redirections => true,
+                                   max_nb_redirections => 5}),
+  ?assertEqual(200, mhttp_response:status(Response2)),
+  Result3 = send_request(#{method => get, target => URI},
+                         #{follow_redirections => true,
+                           max_nb_redirections => 1}),
+  ?assertMatch({error, {too_many_redirections, _}}, Result3).
+
+-spec send_request(mhttp:request()) -> {ok, mhttp:response()} | {error, term()}.
+send_request(Request) ->
+  send_request(Request, #{}).
+
+-spec send_request(mhttp:request(), mhttp:request_options()) ->
+        {ok, mhttp:response()} | {error, term()}.
+send_request(Request, Options) ->
+  mhttp:send_request(Request, Options#{pool => test}).
 
 -spec test_uri(uri:uri()) -> uri:uri().
 test_uri(URI) ->

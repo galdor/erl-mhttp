@@ -98,7 +98,7 @@ handle_call({send_request, Request, Options}, _From, State) ->
     {reply, {ok, Response}, State}
   catch
     error:Reason:Trace ->
-      {reply, {error, Reason, Trace}, State};
+      {reply, {error, {Reason, Trace}}, State};
     exit:{Reason, Call} ->
       {reply, {error, {client_failure, Reason, Call}}, State}
   end;
