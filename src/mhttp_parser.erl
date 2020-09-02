@@ -56,7 +56,12 @@ parse(P = #{data := Data, state := request_line}) ->
   case binary:split(Data, <<"\r\n">>) of
     [Line, Rest] ->
       {Method, Target, Version} = mhttp_proto:parse_request_line(Line),
-      Request = #{method => Method, target => Target, version => Version},
+      Request = #{method => Method,
+                  target => Target,
+                  version => Version,
+                  header => mhttp_header:new(),
+                  body => <<>>,
+                  trailer => mhttp_header:new()},
       parse(P#{data => Rest, state => header, msg => Request});
     _ ->
       {more, P}
@@ -66,7 +71,12 @@ parse(P = #{data := Data, state := status_line}) ->
   case binary:split(Data, <<"\r\n">>) of
     [Line, Rest] ->
       {Version, Status, Reason} = mhttp_proto:parse_status_line(Line),
-      Response = #{status => Status, reason => Reason, version => Version},
+      Response = #{status => Status,
+                   reason => Reason,
+                   version => Version,
+                   header => mhttp_header:new(),
+                   body => <<>>,
+                   trailer => mhttp_header:new()},
       parse(P#{data => Rest, state => header, msg => Response});
     _ ->
       {more, P}
