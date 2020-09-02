@@ -1,5 +1,5 @@
 # Project
-This reposity contains an implementation of the HTTP 1.1 protocol focused on
+This repository contains an implementation of the HTTP 1.1 protocol focused on
 simplicity and robustness.
 
 # Documentation
