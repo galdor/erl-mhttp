@@ -14,13 +14,33 @@
 
 -module(mhttp_response).
 
--export([header/1,
+-export([version/1, status/1, reason/1, header/1, body/1, trailer/1,
          ensure_reason/1, ensure_date/1, maybe_add_content_length/1,
          is_redirection/1]).
+
+-spec version(mhttp:response()) -> mhttp:version().
+version(Response) ->
+  maps:get(version, Response, http_1_1).
+
+-spec status(mhttp:response()) -> mhttp:status().
+status(#{status := Status}) ->
+  Status.
+
+-spec reason(mhttp:response()) -> binary().
+reason(Response) ->
+  maps:get(reason, Response, <<>>).
 
 -spec header(mhttp:response()) -> mhttp:header().
 header(Response) ->
   maps:get(header, Response, mhttp_header:new()).
+
+-spec body(mhttp:response()) -> mhttp:body().
+body(Response) ->
+  maps:get(body, Response, <<>>).
+
+-spec trailer(mhttp:response()) -> mhttp:header().
+trailer(Response) ->
+  maps:get(trailer, Response, mhttp_header:new()).
 
 -spec ensure_reason(mhttp:response()) -> mhttp:response().
 ensure_reason(Response = #{reason := _}) ->

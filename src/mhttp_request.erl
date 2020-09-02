@@ -14,10 +14,14 @@
 
 -module(mhttp_request).
 
--export([target_uri/1,
-         header/1, prepend_header/2,
+-export([method/1, target_uri/1, version/1, header/1, body/1, trailer/1,
+         prepend_header/2,
          ensure_host/3, maybe_add_content_length/1,
          redirect/3, redirection_uri/2]).
+
+-spec method(mhttp:request()) -> mhttp:method().
+method(#{method := Method}) ->
+  Method.
 
 -spec target_uri(mhttp:request()) -> uri:uri().
 target_uri(#{target := Target}) when is_map(Target) ->
@@ -30,9 +34,21 @@ target_uri(#{target := Target}) ->
       error({invalid_target, Target, Reason})
   end.
 
+-spec version(mhttp:request()) -> mhttp:version().
+version(Request) ->
+  maps:get(version, Request, http_1_1).
+
 -spec header(mhttp:request()) -> mhttp:header().
 header(Request) ->
   maps:get(header, Request, mhttp_header:new()).
+
+-spec body(mhttp:request()) -> mhttp:body().
+body(Request) ->
+  maps:get(body, Request, <<>>).
+
+-spec trailer(mhttp:request()) -> mhttp:header().
+trailer(Request) ->
+  maps:get(trailer, Request, mhttp_header:new()).
 
 -spec prepend_header(mhttp:request(), mhttp:header()) -> mhttp:request().
 prepend_header(Request, Header) ->
