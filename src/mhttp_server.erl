@@ -33,7 +33,8 @@
                      nb_acceptors => pos_integer(),
                      unavailable_service_handler => mhttp:handler(),
                      error_handler => mhttp:error_handler(),
-                     idle_timeout => pos_integer()}.
+                     idle_timeout => pos_integer(),
+                     middlewares => [mhttp:middleware()]}.
 
 -type state() :: #{options := options(),
                    socket := inet:socket(),
@@ -79,8 +80,11 @@ terminate(Reason, State = #{socket := Socket}) ->
 terminate(_Reason, _State) ->
   ok.
 
-handle_call({set_router, Router}, _From, State) ->
-  {reply, ok, State#{router => Router}};
+handle_call({set_router, Router}, _From, State = #{options := Options}) ->
+  ServerMiddlewares = maps:get(middlewares, Options, []),
+  RouterMiddlewares = maps:get(middlewares, Router, []),
+  Router2 = Router#{middlewares => ServerMiddlewares ++ RouterMiddlewares},
+  {reply, ok, State#{router => Router2}};
 
 handle_call({find_route, Request, Context}, _From,
             State = #{router := Router}) ->
@@ -88,9 +92,11 @@ handle_call({find_route, Request, Context}, _From,
   {reply, {Router, Route, Context2}, State};
 handle_call({find_route, _Request, Context}, _From,
             State = #{options := Options}) ->
+  ServerMiddlewares = maps:get(middlewares, Options, []),
+  Router = #{routes => [],
+             middlewares => ServerMiddlewares},
   Handler = maps:get(unavailable_service_handler, Options,
                      fun mhttp_handlers:unavailable_service_handler/2),
-  Router = #{routes => []},
   Route = {unavailable_service, Handler},
   {reply, {Router, Route, Context}, State};
 
