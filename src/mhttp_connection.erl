@@ -93,37 +93,41 @@ handle_info(Msg, State) ->
 
 -spec process_request(mhttp:request(), state()) -> state().
 process_request(Request, State = #{options := Options}) ->
-  ?LOG_DEBUG("received request ~p", [Request]),
-  Response = try
-               Response0 = find_and_call_route(State, Request),
-               finalize_response(State, Response0)
-             catch
-               error:Reason:Trace ->
-                 ?LOG_ERROR("request processing error ~p ~p", [Reason, Trace]),
-                 ErrHandler = maps:get(error_handler, Options),
-                 ErrHandler(Request, #{}, Reason, Trace)
-               end,
-  ?LOG_DEBUG("sending response ~p", [Response]),
+  {Response, Context} =
+    try
+      {Response0, Ctx} = find_and_call_route(State, Request),
+      {finalize_response(State, Response0), Ctx}
+    catch
+      error:Reason:Trace ->
+        ?LOG_ERROR("request processing error ~p ~p", [Reason, Trace]),
+        ErrHandler = maps:get(error_handler, Options),
+        ErrHandler(Request, #{}, Reason, Trace)
+    end,
+  log_request(Request, Response, Context),
   send_response(Response, State),
   State.
 
--spec find_and_call_route(state(), mhttp:request()) -> mhttp:response().
+-spec find_and_call_route(state(), mhttp:request()) ->
+        {mhttp:response(), mhttp:handler_context()}.
 find_and_call_route(#{options := Options}, Request) ->
+  Now = erlang:system_time(microsecond),
   ServerPid = maps:get(server_pid, Options),
   Context = #{client_address => maps:get(address, Options),
-              client_port => maps:get(port, Options)},
+              client_port => maps:get(port, Options),
+              start_time => Now},
   {Router, {_, Handler}, Context2} =
     mhttp_server:find_route(ServerPid, Request, Context),
   Middlewares = maps:get(middlewares, Router, []),
   try
-    call_route(Request, Context2, Handler, Middlewares)
+    Response = call_route(Request, Context2, Handler, Middlewares),
+    {Response, Context2}
   catch
     error:Reason:Trace ->
       ?LOG_ERROR("request handling error ~p ~p", [Reason, Trace]),
       ErrHandler = maps:get(error_handler, Options),
       ErrHandler(Request, #{}, Reason, Trace);
-    throw:{response, Response} ->
-      Response
+    throw:{response, ThrownResponse} ->
+      {ThrownResponse, Context2}
   end.
 
 -spec call_route(mhttp:request(), mhttp:handler_context(), mhttp:handler(),
@@ -216,3 +220,29 @@ schedule_idle_timeout(State = #{options := Options}) ->
   Timeout = maps:get(idle_timeout, Options),
   Timer = erlang:send_after(Timeout, self(), idle_timeout),
   State#{idle_timer => Timer}.
+
+-spec log_request(mhttp:request(), mhttp:response(),
+                  mhttp:handler_context()) -> ok.
+log_request(Request, Response, Context) ->
+  Now = erlang:system_time(microsecond),
+  MethodString = mhttp_proto:encode_method(mhttp_request:method(Request)),
+  Target = mhttp_request:target_string(Request),
+  Status = mhttp_response:status(Response),
+  BodySize = iolist_size(mhttp_response:body(Response)),
+  ProcessingTime = Now - maps:get(start_time, Context),
+  Data = #{domain => [mhttp, request],
+           status => Status,
+           processing_time => ProcessingTime},
+  logger:info("~s ~s ~b ~bB ~ts",
+              [MethodString, Target, Status, BodySize,
+               format_processing_time(ProcessingTime)],
+              Data),
+  ok.
+
+-spec format_processing_time(Microseconds :: integer()) -> binary().
+format_processing_time(Microseconds) when Microseconds < 1000 ->
+  <<(integer_to_binary(Microseconds))/binary, "μs"/utf8>>;
+format_processing_time(Microseconds) when Microseconds > 10000 ->
+  <<(float_to_binary(Microseconds / 1.0e6, [{decimals, 1}]))/binary, "ms">>;
+format_processing_time(Microseconds) ->
+  <<(float_to_binary(Microseconds / 1.0e3, [{decimals, 1}]))/binary, "ms">>.

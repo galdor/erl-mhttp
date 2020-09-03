@@ -14,7 +14,8 @@
 
 -module(mhttp_request).
 
--export([method/1, target_uri/1, version/1, header/1, body/1, trailer/1,
+-export([method/1, target_uri/1, target_string/1, version/1, header/1, body/1,
+         trailer/1,
          prepend_header/2,
          ensure_host/3, maybe_add_content_length/1,
          redirect/3, redirection_uri/2]).
@@ -33,6 +34,12 @@ target_uri(#{target := Target}) ->
     error:Reason ->
       error({invalid_target, Target, Reason})
   end.
+
+-spec target_string(mhttp:request()) -> binary().
+target_string(#{target := Target}) when is_map(Target) ->
+  uri:serialize(Target);
+target_string(#{target := Target}) ->
+  Target.
 
 -spec version(mhttp:request()) -> mhttp:version().
 version(Request) ->

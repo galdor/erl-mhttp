@@ -103,7 +103,8 @@
 
 -type handler_context() :: #{client_address => inet:address(),
                              client_port => inet:port_number(),
-                             path_variables => mhttp_patterns:path_variables()}.
+                             path_variables => mhttp_patterns:path_variables(),
+                             start_time => integer()}.
 
 -spec send_request(request()) -> {ok, response()} | {error, term()}.
 send_request(Request) ->

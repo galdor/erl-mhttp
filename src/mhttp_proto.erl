@@ -15,7 +15,8 @@
 -module(mhttp_proto).
 
 -export([encode_request/1, encode_response/1,
-         encode_request_line/3, encode_status_line/3, encode_header/1,
+         encode_request_line/3, encode_status_line/3,
+         encode_method/1, encode_header/1,
          parse_request_line/1, parse_status_line/1,
          parse_header_field/1,
          parse_chunk_header/1]).
