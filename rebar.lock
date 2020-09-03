@@ -1,8 +1,4 @@
-[{<<"log_formatter">>,
-  {git,"https://github.com/galdor/erl-log-formatter.git",
-       {ref,"fe583b7179a1db7f8874a58f2d863ca6bfb608da"}},
-  0},
- {<<"uri">>,
+[{<<"uri">>,
   {git,"https://github.com/galdor/erl-uri.git",
        {ref,"5d99b0ae124c7bee48116d4ea4b79776035cc0bc"}},
   0}].
