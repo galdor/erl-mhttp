@@ -141,10 +141,11 @@ call_route(Request, Context, Handler, Middlewares) ->
     call_handler(Handler, PreprocessedRequest, PreprocessedContext),
   %% Postprocessing middlewares
   PostMiddlewares = mhttp_middleware:preprocessing_middlewares(Middlewares),
-  {_PostprocessedRequest, PostprocessedResponse, _PostprocessedContext} =
-    lists:foldl(fun (M, {Req, Res, Ctx}) ->
-                    call_postprocessing_middleware(M, Req, Res, Ctx)
-                end, {PreprocessedRequest, Response, HandledContext},
+  {PostprocessedResponse, _PostprocessedContext} =
+    lists:foldl(fun (M, {Res, Ctx}) ->
+                    call_postprocessing_middleware(M, PreprocessedRequest,
+                                                   Res, Ctx)
+                end, {Response, HandledContext},
                 PostMiddlewares),
   PostprocessedResponse.
 
