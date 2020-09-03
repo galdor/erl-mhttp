@@ -79,6 +79,11 @@ test_uri(URI) ->
 
 -spec ensure_directory(file:name_all()) -> ok | {error, term()}.
 ensure_directory(Path) ->
+  ok = case file:del_dir_r(Path) of
+         ok -> ok;
+         {error, enoent} -> ok;
+         Result -> Result
+       end,
   case filelib:ensure_dir(Path) of
     ok ->
       case file:make_dir(Path) of
