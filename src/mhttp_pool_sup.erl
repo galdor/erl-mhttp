@@ -16,12 +16,17 @@
 
 -behaviour(supervisor).
 
--export([start_link/0]).
+-export([start_link/0, start_pool/2]).
 -export([init/1]).
 
 -spec start_link() -> supervisor:startlink_ret().
 start_link() ->
   supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+
+-spec start_pool(mhttp:pool_id(), mhttp_pool:options()) ->
+        supervisor:startchild_ret().
+start_pool(Id, Options) ->
+  supervisor:start_child(?MODULE, pool_child_spec(Id, Options)).
 
 init([]) ->
   Children = pool_child_specs(),
@@ -41,7 +46,7 @@ pool_child_specs() ->
             end,
             [], PoolSpecs).
 
--spec pool_child_spec(atom(), mhttp_server:options()) ->
+-spec pool_child_spec(mhttp:pool_id(), mhttp_server:options()) ->
         supervisor:child_spec().
 pool_child_spec(ChildId, Options) ->
   Name = mhttp_pool:process_name(ChildId),

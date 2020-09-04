@@ -14,8 +14,8 @@
 
 -module(mhttp).
 
--export([send_request/1, send_request/2,
-         set_server_router/2,
+-export([start_pool/2, send_request/1, send_request/2,
+         start_server/2, set_server_router/2,
          path_variable/2,
          header_name_equal/2]).
 
@@ -106,6 +106,11 @@
                              path_variables => mhttp_patterns:path_variables(),
                              start_time => integer()}.
 
+-spec start_pool(mhttp:pool_id(), mhttp_pool:options()) ->
+        supervisor:startchild_ret().
+start_pool(Id, Options) ->
+  mhttp_pool_sup:start_pool(Id, Options).
+
 -spec send_request(request()) -> {ok, response()} | {error, term()}.
 send_request(Request) ->
   send_request(Request, #{}).
@@ -116,6 +121,11 @@ send_request(Request, Options) ->
   PoolId = maps:get(pool, Options, default),
   PoolRef = mhttp_pool:process_name(PoolId),
   mhttp_pool:send_request(PoolRef, Request, Options).
+
+-spec start_server(mhttp:server_id(), mhttp_server:options()) ->
+        supervisor:startchild_ret().
+start_server(Id, Options) ->
+  mhttp_server_sup:start_server(Id, Options).
 
 -spec set_server_router(server_id(), mhttp_router:router()) -> ok.
 set_server_router(ServerId, Router) ->

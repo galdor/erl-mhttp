@@ -16,12 +16,17 @@
 
 -behaviour(supervisor).
 
--export([start_link/0]).
+-export([start_link/0, start_server/2]).
 -export([init/1]).
 
 -spec start_link() -> supervisor:startlink_ret().
 start_link() ->
   supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+
+-spec start_server(mhttp:server_id(), mhttp_server:options()) ->
+        supervisor:startchild_ret().
+start_server(Id, Options) ->
+  supervisor:start_child(?MODULE, server_child_spec(Id, Options)).
 
 init([]) ->
   Children = server_child_specs(),

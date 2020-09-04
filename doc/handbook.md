@@ -86,6 +86,9 @@ use a specific user agent:
                        #{header => [{<<"User-Agent">>, <<"Example/1.0">>}]}}}}]}].
 ```
 
+Pools can also be created with the `mhttp:start_pool/2` function; these pools
+are also handled by the `mhttp_pool_sup` supervisor.
+
 ## Options
 The following pool options are available:
 
@@ -135,6 +138,9 @@ The following example configures a server named `example`.
     #{example => #{address => loopback,
                    port => 8080}}}]}].
 ```
+
+Servers can also be created with the `mhttp:start_server/2` function; these
+servers are also handled by the `mhttp_server_sup` supervisor.
 
 ## Handling routes
 The `mhttp:set_server_router/2` function is used to set the router associated
