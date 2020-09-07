@@ -147,7 +147,7 @@ parse(P = #{data := Data, state := trailer, msg := Msg}) ->
     [FieldData, Rest] ->
       Field = mhttp_proto:parse_header_field(FieldData),
       Trailer = maps:get(trailer, Msg, []),
-      Msg2 = Msg#{trailer => mhttp_trailer:add_field(Trailer, Field)},
+      Msg2 = Msg#{trailer => mhttp_header:add_field(Trailer, Field)},
       parse(P#{data => Rest, state => trailer, msg => Msg2});
     _ ->
       {more, P}
