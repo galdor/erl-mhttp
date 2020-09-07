@@ -26,8 +26,8 @@
 -type client_name() :: mhttp:gen_server_name().
 -type client_ref() :: mhttp:gen_server_ref().
 
--type options() :: #{host => mhttp:host(),
-                     port => inets:port_number(),
+-type options() :: #{host => uri:host(),
+                     port => uri:port_number(),
                      transport => mhttp:transport(),
                      tcp_options => [gen_tcp:connect_option()],
                      tls_options => [ssl:tls_client_option()],
@@ -43,13 +43,12 @@
 start_link(Options) ->
   gen_server:start_link(?MODULE, [Options], []).
 
--spec send_request(mhttp:client_ref(), mhttp:request()) ->
+-spec send_request(client_ref(), mhttp:request()) ->
         {mhttp:response()} | {error, term()}.
 send_request(Ref, Request) ->
   send_request(Ref, Request, #{}).
 
--spec send_request(mhttp:client_ref(), mhttp:request(),
-                   mhttp:request_options()) ->
+-spec send_request(client_ref(), mhttp:request(), mhttp:request_options()) ->
         {ok, mhttp:response()} | {error, term()}.
 send_request(Ref, Request, Options) ->
   gen_server:call(Ref, {send_request, Request, Options}, infinity).

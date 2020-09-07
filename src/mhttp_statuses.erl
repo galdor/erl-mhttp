@@ -16,7 +16,7 @@
 
 -export([reason/1]).
 
--spec reason(mhttp:status()) -> mhttp:reason().
+-spec reason(mhttp:status()) -> binary().
 
 %% RFC 7231 (HTTP/1.1 Semantics and Content)
 reason(100) -> <<"Continue">>;

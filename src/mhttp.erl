@@ -20,7 +20,8 @@
          header_name_equal/2]).
 
 -export_type([gen_server_name/0, gen_server_ref/0,
-              host/0, transport/0,
+              pool_id/0, server_id/0,
+              transport/0,
               client_key/0,
               request/0, request_options/0,
               response/0,
@@ -30,7 +31,8 @@
               route_pattern/0, route/0,
               middleware/0,
               handler_fun/0, handler/0, error_handler/0,
-              handler_context/0]).
+              handler_context/0,
+              stack_item/0]).
 
 -type gen_server_name() :: {local, term()}
                          | {global, term()}
@@ -45,11 +47,9 @@
 -type pool_id() :: atom().
 -type server_id() :: atom().
 
--type host() :: inet:hostname() | inet:ip_address().
-
 -type transport() :: tcp | tls.
 
--type client_key() :: {host(), inets:port_number(), transport()}.
+-type client_key() :: {uri:host(), uri:port_number(), transport()}.
 
 -type request() :: #{method := method(),
                      target := target(),
@@ -88,25 +88,31 @@
 -type route_pattern() :: default
                        | unavailable_service
                        | mhttp_patterns:pattern().
--type route() :: {route:pattern(), handler()}.
+-type route() :: {route_pattern(), handler()}.
 
 -type middleware() :: {module(), Args :: list()}
                     | {preprocess, module(), Args :: list()}
                     | {postprocess, module(), Args :: list()}.
 
 -type handler_fun() :: fun((request(), handler_context()) ->
-                              response() | {response() | handler_context()}).
+                              response() | {response(), handler_context()}).
 -type handler() :: handler_fun().
 -type error_handler() :: fun((request(), handler_context(),
-                              Reason :: term(), [erlang:stack_item()]) ->
+                              Reason :: term(), [stack_item()]) ->
                                 response()).
 
--type handler_context() :: #{client_address => inet:address(),
+-type handler_context() :: #{client_address => inet:ip_address(),
                              client_port => inet:port_number(),
                              path_variables => mhttp_patterns:path_variables(),
                              start_time => integer()}.
 
--spec start_pool(mhttp:pool_id(), mhttp_pool:options()) ->
+%% erlang:stack_item/0 is not exported.
+-type stack_item() :: {module(),
+                       Function :: atom(),
+                       arity() | (Args :: [term()]),
+                       [{file, string()} | {line, non_neg_integer()}]}.
+
+-spec start_pool(pool_id(), mhttp_pool:options()) ->
         supervisor:startchild_ret().
 start_pool(Id, Options) ->
   mhttp_pool_sup:start_pool(Id, Options).

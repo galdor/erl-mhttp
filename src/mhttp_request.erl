@@ -61,7 +61,7 @@ trailer(Request) ->
 prepend_header(Request, Header) ->
   Request#{header => mhttp_header:append(Header, header(Request))}.
 
--spec ensure_host(mhttp:request(), mhttp:host(), inets:port_number()) ->
+-spec ensure_host(mhttp:request(), uri:host(), uri:port_number()) ->
         mhttp:request().
 ensure_host(Request, Host, Port) ->
   Value = iolist_to_binary([Host, $:, integer_to_binary(Port)]),

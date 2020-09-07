@@ -28,7 +28,7 @@
 -type server_ref() :: mhttp:gen_server_ref().
 
 -type options() :: #{address => inet:socket_address(),
-                     port => inets:port_number(),
+                     port => inet:port_number(),
                      tcp_options => [gen_tcp:listen_option()],
                      nb_acceptors => pos_integer(),
                      unavailable_service_handler => mhttp:handler(),
@@ -64,7 +64,7 @@ set_router(Ref, Router) ->
   gen_server:call(Ref, {set_router, Router}, infinity).
 
 -spec find_route(server_ref(), mhttp:request(), mhttp:handler_context()) ->
-        {mhttp_router:router(), mhttp_router:route(), mhttp:handler_context()}.
+        {mhttp_router:router(), mhttp:route(), mhttp:handler_context()}.
 find_route(Ref, Request, Context) ->
   gen_server:call(Ref, {find_route, Request, Context}, infinity).
 

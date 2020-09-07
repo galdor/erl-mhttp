@@ -39,14 +39,14 @@ process_name(Id) ->
   Name = <<"mhttp_pool_", (atom_to_binary(Id))/binary>>,
   binary_to_atom(Name).
 
--spec start_link(mhttp:pool_name() | options()) -> Result when
+-spec start_link(pool_name() | options()) -> Result when
     Result :: {ok, pid()} | ignore | {error, term()}.
 start_link(Options) when is_map(Options) ->
   gen_server:start_link(?MODULE, [Options], []);
 start_link(Name) ->
   start_link(Name, #{}).
 
--spec start_link(mhttp:pool_name(), options()) -> Result when
+-spec start_link(pool_name(), options()) -> Result when
     Result :: {ok, pid()} | ignore | {error, term()}.
 start_link(Name, Options) ->
   gen_server:start_link(Name, ?MODULE, [Options], []).
@@ -120,7 +120,8 @@ handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
   {noreply, State}.
 
--spec get_or_create_client(state(), mhttp:client_key()) -> mhttp:client_ref().
+-spec get_or_create_client(state(), mhttp:client_key()) ->
+        mhttp_client:client_ref().
 get_or_create_client(State = #{clients_by_key := ClientsByKey,
                                clients_by_pid := ClientsByPid},
                      Key) ->
@@ -135,7 +136,8 @@ get_or_create_client(State = #{clients_by_key := ClientsByKey,
       Pid
   end.
 
--spec create_client(state(), mhttp:client_key()) -> mhttp:client_ref().
+-spec create_client(state(), mhttp:client_key()) ->
+        mhttp_client:client_ref().
 create_client(#{options := Options}, {Host, Port, Transport}) ->
   ClientOptions0 = maps:get(client_options, Options, #{}),
   ClientOptions = ClientOptions0#{host => Host, port => Port,

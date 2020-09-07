@@ -26,8 +26,8 @@
 default_route() ->
   {default, fun mhttp_handlers:not_found_handler/2}.
 
--spec find_route(router(), mhttp:request(), mhttp:request_context()) ->
-        {mhttp:route(), mhttp:request_context()}.
+-spec find_route(router(), mhttp:request(), mhttp:handler_context()) ->
+        {mhttp:route(), mhttp:handler_context()}.
 find_route(Router = #{routes := Routes}, Request, Context) ->
   case find_route_(Routes, Request) of
     {ok, Route, PathVariables} ->

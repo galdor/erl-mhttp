@@ -26,7 +26,7 @@
 -type options() :: #{server_pid := pid(),
                      error_handler := mhttp:error_handler(),
                      idle_timeout := pos_integer(),
-                     address => inet:address(),
+                     address => inet:ip_address(),
                      port => inet:port_number()}.
 
 -type state() :: #{options := options(),
