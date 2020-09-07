@@ -20,10 +20,9 @@
   {applications,
    [kernel,
     stdlib,
-    crypto
-   ]},
+    ssl,
+    uri]},
   {env, []},
   {modules, []},
 
-  {licenses, ["ISC"]}
- ]}.
+  {licenses, ["ISC"]}]}.
