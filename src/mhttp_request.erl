@@ -17,7 +17,7 @@
 -export([method/1, target_uri/1, target_string/1, version/1, header/1, body/1,
          trailer/1,
          prepend_header/2,
-         ensure_host/3, maybe_add_content_length/1,
+         ensure_host/4, maybe_add_content_length/1,
          redirect/3, redirection_uri/2]).
 
 -spec method(mhttp:request()) -> mhttp:method().
@@ -61,10 +61,21 @@ trailer(Request) ->
 prepend_header(Request, Header) ->
   Request#{header => mhttp_header:append(Header, header(Request))}.
 
--spec ensure_host(mhttp:request(), uri:host(), uri:port_number()) ->
+-spec ensure_host(mhttp:request(), uri:host(), uri:port_number(),
+                  mhttp:transport()) ->
         mhttp:request().
-ensure_host(Request, Host, Port) ->
-  Value = iolist_to_binary([Host, $:, integer_to_binary(Port)]),
+ensure_host(Request, Host, Port, Transport) ->
+  %% We take care not to include the port in the value if this is the default
+  %% port for the transport used; infortunately, some servers will respond
+  %% with Location header field based on the value of the Host header field
+  %% without any host/port analysis. For example, GitHub will redirect a
+  %% request for http://github.com with a Host header field set to
+  %% "github.com:80" to "https://github.com:80/".
+  Value = case {Transport, Port} of
+            {tcp, 80} -> Host;
+            {tls, 443} -> Host;
+            _ -> <<Host/binary, $:, (integer_to_binary(Port))/binary>>
+          end,
   Header = mhttp_request:header(Request),
   Header2 = mhttp_header:add_if_missing(Header, <<"Host">>, Value),
   Request#{header => Header2}.

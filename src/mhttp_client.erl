@@ -164,10 +164,10 @@ do_send_request(State, Request0, _RequestOptions) ->
 
 -spec finalize_request(state(), mhttp:request()) -> mhttp:request().
 finalize_request(#{options := Options}, Request) ->
-  #{host := Host, port := Port} = Options,
+  #{host := Host, port := Port, transport := Transport} = Options,
   Header = maps:get(header, Options, []),
   Funs = [fun (R) -> mhttp_request:prepend_header(R, Header) end,
-          fun (R) -> mhttp_request:ensure_host(R, Host, Port) end,
+          fun (R) -> mhttp_request:ensure_host(R, Host, Port, Transport) end,
           fun mhttp_request:maybe_add_content_length/1],
   lists:foldl(fun (Fun, R) -> Fun(R) end, Request, Funs).
 
