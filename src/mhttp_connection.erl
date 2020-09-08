@@ -224,25 +224,5 @@ schedule_idle_timeout(State = #{options := Options}) ->
 -spec log_request(mhttp:request(), mhttp:response(),
                   mhttp:handler_context()) -> ok.
 log_request(Request, Response, Context) ->
-  Now = erlang:system_time(microsecond),
-  MethodString = mhttp_proto:encode_method(mhttp_request:method(Request)),
-  Target = mhttp_request:target_string(Request),
-  Status = mhttp_response:status(Response),
-  BodySize = iolist_size(mhttp_response:body(Response)),
-  ProcessingTime = Now - maps:get(start_time, Context),
-  Data = #{domain => [mhttp, request],
-           status => Status,
-           processing_time => ProcessingTime},
-  logger:info("~s ~s ~b ~bB ~ts",
-              [MethodString, Target, Status, BodySize,
-               format_processing_time(ProcessingTime)],
-              Data),
-  ok.
-
--spec format_processing_time(Microseconds :: integer()) -> binary().
-format_processing_time(Microseconds) when Microseconds < 1000 ->
-  <<(integer_to_binary(Microseconds))/binary, "μs"/utf8>>;
-format_processing_time(Microseconds) when Microseconds > 10000 ->
-  <<(float_to_binary(Microseconds / 1.0e6, [{decimals, 1}]))/binary, "ms">>;
-format_processing_time(Microseconds) ->
-  <<(float_to_binary(Microseconds / 1.0e3, [{decimals, 1}]))/binary, "ms">>.
+  StartTime = maps:get(start_time, Context),
+  mhttp_log:log_request(Request, Response, StartTime).

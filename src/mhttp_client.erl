@@ -153,12 +153,12 @@ connect_tls(Options) ->
 -spec do_send_request(state(), mhttp:request(), mhttp:request_options()) ->
         {state(), mhttp:response()}.
 do_send_request(State, Request0, _RequestOptions) ->
+  StartTime = erlang:system_time(microsecond),
   Request = finalize_request(State, Request0),
-  ?LOG_DEBUG("sending request ~p", [Request]),
   send(State, mhttp_proto:encode_request(Request)),
   set_socket_active(State, false),
   {State2, Response} = read_response(State),
-  ?LOG_DEBUG("received response ~p", [Response]),
+  mhttp_log:log_request(Request, Response, StartTime),
   set_socket_active(State2, true),
   {State2, Response}.
 
