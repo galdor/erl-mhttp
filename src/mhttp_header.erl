@@ -17,7 +17,7 @@
 -export([new/0,
          append/2,
          contains/2, find/2, find_all/2, find_all_concat/2, find_all_split/2,
-         add/3, add_field/2, add_if_missing/3,
+         add/3, add_field/2, add_if_missing/3, remove/2,
          content_length/1,
          transfer_encoding/1, has_transfer_encoding/2,
          has_connection_close/1,
@@ -101,6 +101,12 @@ add_if_missing(Header, Name, Value) ->
     false ->
       add(Header, Name, Value)
   end.
+
+-spec remove(mhttp:header(), mhttp:header_name()) -> mhttp:header().
+remove(Header, Name) ->
+  lists:filter(fun ({N, V}) ->
+                   not mhttp:header_name_equal(N, Name)
+               end, Header).
 
 -spec content_length(mhttp:header()) -> {ok, pos_integer()} | error.
 content_length(Header) ->

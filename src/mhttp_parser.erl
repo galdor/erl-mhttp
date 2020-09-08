@@ -155,7 +155,7 @@ parse(P = #{data := Data, state := trailer, msg := Msg}) ->
 
 parse(P = #{state := final, msg := Msg}) ->
   P2 = maps:remove(response, P),
-  {ok, Msg, P2#{state => initial}}.
+  {ok, decode_message_body(Msg), P2#{state => initial}}.
 
 -spec split_header_field(binary()) -> [binary()].
 split_header_field(Data) ->
@@ -171,3 +171,27 @@ split_header_field(Data, Acc) ->
     _ ->
       Data
   end.
+
+-spec decode_message_body(msg()) -> msg().
+decode_message_body(Msg = #{header := Header, body := Body}) ->
+  Codings0 = mhttp_header:transfer_encoding(Header),
+  Codings = case lists:reverse(Codings0) of
+              [<<"chunked">> | Rest] -> Rest; % already decoded in the parser
+              Cs -> Cs
+            end,
+  Header2 = mhttp_header:remove(Header, <<"Transfer-Encoding">>),
+  Body2 = decode_body(Body, Codings),
+  Msg#{header => Header2, body => Body2}.
+
+-spec decode_body(iodata(), Codings :: [binary()]) -> binary().
+decode_body(Body, []) ->
+  iolist_to_binary(Body);
+decode_body(_Body, [<<"chunked">> | _Codings]) ->
+  %% Any final chunked transfer encoding was removed from the list in
+  %% decode_message_body/1. Any additional chunked encoding is invalid (RFC
+  %% 7230 3.3.1.)
+  error(invalid_chunked_transfer_encoding);
+decode_body(Body, [<<"identity">> | Codings]) ->
+  decode_body(Body, Codings);
+decode_body(_Body, [Coding | _Codings]) ->
+  error({unsupported_transfer_encoding, Coding}).
