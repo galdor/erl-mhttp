@@ -193,5 +193,13 @@ decode_body(_Body, [<<"chunked">> | _Codings]) ->
   error(invalid_chunked_transfer_encoding);
 decode_body(Body, [<<"identity">> | Codings]) ->
   decode_body(Body, Codings);
+decode_body(Body, [<<"trailers">> | Codings]) ->
+  decode_body(Body, Codings);
+decode_body(Body, [<<"gzip">> | Codings]) ->
+  Body2 = mhttp_compression:decompress(gzip, Body),
+  decode_body(Body2, Codings);
+decode_body(Body, [<<"x-gzip">> | Codings]) ->
+  Body2 = mhttp_compression:decompress(gzip, Body),
+  decode_body(Body2, Codings);
 decode_body(_Body, [Coding | _Codings]) ->
   error({unsupported_transfer_encoding, Coding}).
