@@ -19,7 +19,7 @@
          contains/2, find/2, find_all/2, find_all_concat/2, find_all_split/2,
          add/3, add_field/2, add_if_missing/3, remove/2,
          content_length/1,
-         transfer_encoding/1, has_transfer_coding/2,
+         transfer_encoding/1,
          has_connection_close/1,
          body/1]).
 
@@ -128,10 +128,6 @@ content_length(Header) ->
 transfer_encoding(Header) ->
   Values = mhttp_header:find_all_split(Header, <<"Transfer-Encoding">>),
   lists:map(fun string:lowercase/1, Values).
-
--spec has_transfer_coding(mhttp:header(), Coding :: binary()) -> boolean().
-has_transfer_coding(Header, Coding) ->
-  lists:member(string:lowercase(Coding), transfer_encoding(Header)).
 
 -spec chunked_transfer_coding(mhttp:header()) ->
         intermediary | last | not_found.

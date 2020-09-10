@@ -130,23 +130,3 @@ transfer_encoding_test_() ->
                  TransferEncoding([{<<"Transfer-Encoding">>, <<"Foo">>},
                                    {<<"Transfer-Encoding">>, <<"bAR, baz">>},
                                    {<<"Transfer-Encoding">>, <<"HELLO">>}]))].
-
-has_transfer_coding_test_() ->
-  HasTransferCoding = fun mhttp_header:has_transfer_coding/2,
-  [?_assertNot(HasTransferCoding([], <<"chunked">>)),
-   ?_assertNot(HasTransferCoding([{<<"Transfer-Encoding">>, <<"">>}],
-                                 <<"chunked">>)),
-   ?_assertNot(HasTransferCoding([{<<"Transfer-Encoding">>, <<"deflate">>}],
-                                 <<"chunked">>)),
-   ?_assert(HasTransferCoding([{<<"Transfer-Encoding">>, <<"chunked">>}],
-                              <<"chunked">>)),
-   ?_assert(HasTransferCoding([{<<"Transfer-Encoding">>,
-                                <<"deflate, chunked">>}],
-                              <<"chunked">>)),
-   ?_assert(HasTransferCoding([{<<"Transfer-Encoding">>,
-                                <<"deflate, chunked, compress">>}],
-                              <<"chunked">>)),
-   ?_assert(HasTransferCoding([{<<"Transfer-Encoding">>, <<"deflate">>},
-                               {<<"Transfer-Encoding">>,
-                                <<"gzip, chunked">>}],
-                              <<"chunked">>))].
