@@ -19,7 +19,7 @@
          contains/2, find/2, find_all/2, find_all_concat/2, find_all_split/2,
          add/3, add_field/2, add_if_missing/3, remove/2,
          content_length/1,
-         transfer_encoding/1, has_transfer_encoding/2,
+         transfer_encoding/1, has_transfer_coding/2,
          has_connection_close/1,
          body/1]).
 
@@ -104,7 +104,7 @@ add_if_missing(Header, Name, Value) ->
 
 -spec remove(mhttp:header(), mhttp:header_name()) -> mhttp:header().
 remove(Header, Name) ->
-  lists:filter(fun ({N, V}) ->
+  lists:filter(fun ({N, _}) ->
                    not mhttp:header_name_equal(N, Name)
                end, Header).
 
@@ -129,9 +129,19 @@ transfer_encoding(Header) ->
   Values = mhttp_header:find_all_split(Header, <<"Transfer-Encoding">>),
   lists:map(fun string:lowercase/1, Values).
 
--spec has_transfer_encoding(mhttp:header(), Coding :: binary()) -> boolean().
-has_transfer_encoding(Header, Coding) ->
+-spec has_transfer_coding(mhttp:header(), Coding :: binary()) -> boolean().
+has_transfer_coding(Header, Coding) ->
   lists:member(string:lowercase(Coding), transfer_encoding(Header)).
+
+-spec chunked_transfer_coding(mhttp:header()) ->
+        intermediary | last | not_found.
+chunked_transfer_coding(Header) ->
+  Fun = fun F([]) -> not_found;
+            F([<<"chunked">>]) -> last;
+            F([<<"chunked">> | _]) -> intermediary;
+            F([_ | T]) -> F(T)
+        end,
+  Fun(transfer_encoding(Header)).
 
 -spec has_connection_close(mhttp:header()) -> boolean().
 has_connection_close(Header) ->
@@ -141,14 +151,21 @@ has_connection_close(Header) ->
 
 -spec body(mhttp:header()) -> {fixed, pos_integer()} | chunked | none.
 body(Header) ->
-  case mhttp_header:content_length(Header) of
-    {ok, Length} ->
-      {fixed, Length};
-    error ->
-      case mhttp_header:has_transfer_encoding(Header, <<"chunked">>) of
-        true ->
-          chunked;
-        false ->
+  %% See RFC 7230 3.3.3.
+  case chunked_transfer_coding(Header) of
+    last ->
+      chunked;
+    intermediary ->
+      %% "If a Transfer-Encoding header field is present in a request and the
+      %% chunked transfer coding is not the final encoding, the message body
+      %% length cannot be determined reliably; the server MUST respond with
+      %% the 400 (Bad Request) status code and then close the connection."
+      error(invalid_intermediary_chunked_encoding);
+    not_found ->
+      case mhttp_header:content_length(Header) of
+        {ok, Length} ->
+          {fixed, Length};
+        error ->
           none
       end
-    end.
+  end.
