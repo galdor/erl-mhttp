@@ -70,7 +70,9 @@ handle_info(idle_timeout, State) ->
 
 handle_info({tcp, _Socket, Data}, State = #{parser := Parser}) ->
   State2 = schedule_idle_timeout(State),
-  case mhttp_parser:parse(Parser, Data) of
+  try
+    mhttp_parser:parse(Parser, Data)
+  of
     {ok, Request, Parser2} ->
       State3 = process_request(Request, State#{parser => Parser2}),
       set_socket_active(State3, 1),
@@ -78,6 +80,13 @@ handle_info({tcp, _Socket, Data}, State = #{parser := Parser}) ->
     {more, Parser2} ->
       set_socket_active(State2, 1),
       {noreply, State#{parser => Parser2}}
+  catch
+    error:Reason:Trace ->
+      ?LOG_ERROR("request parsing error ~p ~p", [Reason, Trace]),
+      Response0 = #{status => 400},
+      Response = finalize_response(State2, Response0),
+      send_response(Response, State2),
+      {stop, normal, State2}
   end;
 
 handle_info({tcp_closed, _Socket}, State) ->
@@ -93,16 +102,16 @@ handle_info(Msg, State) ->
 
 -spec process_request(mhttp:request(), state()) -> state().
 process_request(Request, State = #{options := Options}) ->
-  {Response, Context} =
+  {Response0, Context} =
     try
-      {Response0, Ctx} = find_and_call_route(State, Request),
-      {finalize_response(State, Response0), Ctx}
+      find_and_call_route(State, Request)
     catch
       error:Reason:Trace ->
         ?LOG_ERROR("request processing error ~p ~p", [Reason, Trace]),
         ErrHandler = maps:get(error_handler, Options),
         ErrHandler(Request, #{}, Reason, Trace)
     end,
+  Response = finalize_response(State, Response0),
   log_request(Request, Response, Context),
   send_response(Response, State),
   State.
