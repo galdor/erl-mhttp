@@ -51,7 +51,8 @@ simple_request() ->
 
 redirections() ->
   URI = test_uri(#{path => <<"/redirect-1">>}),
-  {ok, Response1} = send_request(#{method => get, target => URI}),
+  {ok, Response1} = send_request(#{method => get, target => URI},
+                                 #{follow_redirections => false}),
   ?assertEqual(302, mhttp_response:status(Response1)),
   {ok, Response2} = send_request(#{method => get, target => URI},
                                  #{follow_redirections => true,

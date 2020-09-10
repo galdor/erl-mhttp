@@ -186,7 +186,7 @@ do_send_request(State, Request, Options, NbRedirectionsLeft) ->
   Request2 = Request#{target => Target},
   case mhttp_client:send_request(Client, Request2, Options) of
     {ok, Response} ->
-      case maps:get(follow_redirections, Options, false) of
+      case maps:get(follow_redirections, Options, true) of
         true ->
           case mhttp_response:is_redirection(Response) of
             {true, URI} ->
