@@ -30,6 +30,7 @@
                      port => uri:port_number(),
                      transport => mhttp:transport(),
                      connection_timeout => timeout(),
+                     read_timeout => timeout(),
                      tcp_options => [gen_tcp:connect_option()],
                      tls_options => [ssl:tls_client_option()],
                      header => mhttp:header(),
@@ -69,12 +70,21 @@ terminate(_Reason, #{transport := tls, socket := Socket}) ->
   ok.
 
 handle_call({send_request, Request, Options}, _From, State) ->
-  {State2, Response} = do_send_request(State, Request, Options),
-  case connection_needs_closing(Response) of
-    true ->
-      {stop, normal, {ok, Response}, State2};
-    false ->
-      {reply, {ok, Response}, State2}
+  try
+    do_send_request(State, Request, Options)
+  of
+    {State2, Response} ->
+      case connection_needs_closing(Response) of
+        true ->
+          {stop, normal, {ok, Response}, State2};
+        false ->
+          {reply, {ok, Response}, State2}
+      end
+  catch
+    error:read_timeout ->
+      {stop, read_timeout, {error, read_timeout}, State};
+    error:write_timeout ->
+      {stop, write_timeout, {error, write_timeout}, State}
   end;
 
 handle_call(Msg, From, State) ->
@@ -232,20 +242,25 @@ send(#{transport := Transport, socket := Socket}, Data) ->
     ok ->
       ok;
     {error, closed} ->
-      on_connection_closed()
+      on_connection_closed();
+    {error, timeout} ->
+      error(write_timeout)
   end.
 
 -spec recv(state(), non_neg_integer()) -> binary().
-recv(#{transport := Transport, socket := Socket}, N) ->
+recv(#{options := Options, transport := Transport, socket := Socket}, N) ->
   Fun = case Transport of
-          tcp -> fun gen_tcp:recv/2;
-          tls -> fun ssl:recv/2
+          tcp -> fun gen_tcp:recv/3;
+          tls -> fun ssl:recv/3
         end,
-  case Fun(Socket, N) of
+  Timeout = maps:get(read_timeout, Options, 30_000),
+  case Fun(Socket, N, Timeout) of
     {ok, Data} ->
       Data;
     {error, closed} ->
-      on_connection_closed()
+      on_connection_closed();
+    {error, timeout} ->
+      error(read_timeout)
   end.
 
 -spec on_connection_closed() -> no_return().

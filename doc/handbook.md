@@ -55,6 +55,10 @@ The following client options are available:
 - `port`: the port number to connect to (default: `80`).
 - `transport`: the network transport, either `tcp` or `tls`.
 - `connection_timeout`: the timeout for the initial connection to the server.
+- `read_timeout`: the timeout of each read operation when reading a
+  response. Note that the timeout used for write operations is configured in
+  `tcp_options` with `send_timeout` as specified in the [Erlang
+  documentation](https://erlang.org/doc/man/gen_tcp.html).
 - `tcp_options`: a list of `gen_tcp` client options to apply.
 - `tls_options`: a list of `ssl` client options to apply (only used if the
   transport is `tls`).
@@ -62,8 +66,8 @@ The following client options are available:
 - `compression`: accept compressed responses and automatically decompress
   them. The only compression scheme currently supported is `gzip`.
 
-Note that for TLS connections, the client uses both the list of TCP options
-and the list of TLS options.
+For TLS connections, the client uses both the list of TCP options and the list
+of TLS options.
 
 # Pool
 A pool is a set of HTTP clients. Pools can send requests to any destination
