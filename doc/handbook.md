@@ -54,6 +54,7 @@ The following client options are available:
 - `host`: the hostname or IP address to connect to (default: `<<"localhost">>`).
 - `port`: the port number to connect to (default: `80`).
 - `transport`: the network transport, either `tcp` or `tls`.
+- `connection_timeout`: the timeout for the initial connection to the server.
 - `tcp_options`: a list of `gen_tcp` client options to apply.
 - `tls_options`: a list of `ssl` client options to apply (only used if the
   transport is `tls`).

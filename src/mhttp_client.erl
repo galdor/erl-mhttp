@@ -29,6 +29,7 @@
 -type options() :: #{host => uri:host(),
                      port => uri:port_number(),
                      transport => mhttp:transport(),
+                     connection_timeout => timeout(),
                      tcp_options => [gen_tcp:connect_option()],
                      tls_options => [ssl:tls_client_option()],
                      header => mhttp:header(),
@@ -113,11 +114,12 @@ connect(Options) ->
 connect_tcp(Options) ->
   Host = maps:get(host, Options, <<"localhost">>),
   Port = maps:get(port, Options, 80),
+  Timeout = maps:get(connection_timeout, Options, 5000),
   RequiredTCPOptions = [{mode, binary}],
   TCPOptions = RequiredTCPOptions ++ maps:get(tcp_options, Options, []),
   ?LOG_INFO("connecting to ~s:~b", [Host, Port]),
   HostString = unicode:characters_to_list(Host),
-  case gen_tcp:connect(HostString, Port, TCPOptions, 5000) of
+  case gen_tcp:connect(HostString, Port, TCPOptions, Timeout) of
     {ok, Socket} ->
       ?LOG_INFO("connection established"),
       #{options => Options#{host => Host, port => Port},
@@ -133,13 +135,14 @@ connect_tcp(Options) ->
 connect_tls(Options) ->
   Host = maps:get(host, Options, <<"localhost">>),
   Port = maps:get(port, Options, 443),
+  Timeout = maps:get(connection_timeout, Options, 5000),
   RequiredTLSOptions = [{mode, binary}],
   TLSOptions = RequiredTLSOptions ++
     maps:get(tcp_options, Options, []) ++
     maps:get(tls_options, Options, []),
   ?LOG_INFO("connecting to ~s:~b", [Host, Port]),
   HostString = unicode:characters_to_list(Host),
-  case ssl:connect(HostString, Port, TLSOptions, 5000) of
+  case ssl:connect(HostString, Port, TLSOptions, Timeout) of
     {ok, Socket} ->
       ?LOG_INFO("connection established"),
       #{options => Options#{host => Host, port => Port},
