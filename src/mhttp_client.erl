@@ -58,7 +58,13 @@ send_request(Ref, Request, Options) ->
 
 init([Options]) ->
   logger:update_process_metadata(#{domain => [mhttp, client]}),
-  {ok, connect(Options)}.
+  State = try
+            connect(Options)
+          catch
+            error:Reason ->
+              {stop, Reason}
+          end,
+  {ok, State}.
 
 terminate(_Reason, #{transport := tcp, socket := Socket}) ->
   ?LOG_DEBUG("closing connection"),
