@@ -174,32 +174,44 @@ split_header_field(Data, Acc) ->
 
 -spec decode_message_body(msg()) -> msg().
 decode_message_body(Msg = #{header := Header, body := Body}) ->
-  Codings0 = mhttp_header:transfer_encoding(Header),
-  Codings = case lists:reverse(Codings0) of
-              [<<"chunked">> | Rest] -> Rest; % already decoded in the parser
-              Cs -> Cs
-            end,
-  Header2 = mhttp_header:remove(Header, <<"Transfer-Encoding">>),
-  Body2 = decode_body(Body, Codings),
-  Msg#{header => Header2, body => Body2}.
+  OriginalSize = iolist_size(Body),
+  TransferCodings0 = mhttp_header:transfer_encoding(Header),
+  TransferCodings = case lists:reverse(TransferCodings0) of
+                      [<<"chunked">> | Rest] -> Rest; % already decoded in the parser
+                      Cs -> Cs
+                    end,
+  Body2 = decode_body(Body, transfer, TransferCodings),
+  ContentCodings0 = mhttp_header:content_encoding(Header),
+  ContentCodings = lists:reverse(ContentCodings0),
+  Body3 = decode_body(Body2, content, ContentCodings),
+  Header2 = mhttp_header:remove(Header, [<<"Transfer-Encoding">>,
+                                         <<"Content-Encoding">>]),
+  Internal = maps:get(internal, Msg, #{}),
+  Msg#{header => Header2,
+       body => Body3,
+       internal => Internal#{original_body_size => OriginalSize}}.
 
--spec decode_body(iodata(), Codings :: [binary()]) -> binary().
-decode_body(Body, []) ->
+-spec decode_body(iodata(), Type, Codings) -> binary() when
+    Type :: content | transfer,
+    Codings :: [binary()].
+decode_body(Body, _Type, []) ->
   iolist_to_binary(Body);
-decode_body(_Body, [<<"chunked">> | _Codings]) ->
+decode_body(_Body, transfer, [<<"chunked">> | _Codings]) ->
   %% Any final chunked transfer encoding was removed from the list in
   %% decode_message_body/1. Any additional chunked encoding is invalid (RFC
   %% 7230 3.3.1.)
   error(invalid_chunked_transfer_encoding);
-decode_body(Body, [<<"identity">> | Codings]) ->
-  decode_body(Body, Codings);
-decode_body(Body, [<<"trailers">> | Codings]) ->
-  decode_body(Body, Codings);
-decode_body(Body, [<<"gzip">> | Codings]) ->
+decode_body(Body, transfer, [<<"identity">> | Codings]) ->
+  decode_body(Body, transfer, Codings);
+decode_body(Body, transfer, [<<"trailers">> | Codings]) ->
+  decode_body(Body, transfer, Codings);
+decode_body(Body, Type, [<<"gzip">> | Codings]) ->
   Body2 = mhttp_compression:decompress(gzip, Body),
-  decode_body(Body2, Codings);
-decode_body(Body, [<<"x-gzip">> | Codings]) ->
+  decode_body(Body2, Type, Codings);
+decode_body(Body, Type, [<<"x-gzip">> | Codings]) ->
   Body2 = mhttp_compression:decompress(gzip, Body),
-  decode_body(Body2, Codings);
-decode_body(_Body, [Coding | _Codings]) ->
+  decode_body(Body2, Type, Codings);
+decode_body(_Body, content, [Coding | _Codings]) ->
+  error({unsupported_content_encoding, Coding});
+decode_body(_Body, transfer, [Coding | _Codings]) ->
   error({unsupported_transfer_encoding, Coding}).

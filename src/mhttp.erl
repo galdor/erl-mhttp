@@ -56,7 +56,8 @@
                      version => version(),
                      header => header(),
                      body => body(),
-                     trailer => header()}.
+                     trailer => header(),
+                     internal => msg_internal()}.
 
 -type request_options() :: #{pool => pool_id(),
                              follow_redirections => boolean(),
@@ -67,7 +68,10 @@
                       reason => binary(),
                       header => header(),
                       body => body(),
-                      trailer => header()}.
+                      trailer => header(),
+                      internal => msg_internal()}.
+
+-type msg_internal() :: #{original_body_size => non_neg_integer()}.
 
 -type method() :: get | head | post | put | delete | connect | options | trace
                 | binary().

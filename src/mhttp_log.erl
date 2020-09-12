@@ -23,7 +23,13 @@ log_request(Request, Response, StartTime) ->
   MethodString = mhttp_proto:encode_method(mhttp_request:method(Request)),
   Target = mhttp_request:target_string(Request),
   Status = mhttp_response:status(Response),
-  BodySize = iolist_size(mhttp_response:body(Response)),
+  Internal = maps:get(internal, Response, #{}),
+  BodySize = case maps:find(original_body_size, Internal) of
+               {ok, Size} ->
+                 Size;
+               error ->
+                 iolist_size(mhttp_response:body(Response))
+             end,
   ProcessingTime = Now - StartTime,
   Data = #{domain => [mhttp, request],
            status => Status,

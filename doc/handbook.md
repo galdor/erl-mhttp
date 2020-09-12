@@ -58,6 +58,8 @@ The following client options are available:
 - `tls_options`: a list of `ssl` client options to apply (only used if the
   transport is `tls`).
 - `header`: a set of default header fields used for all requests sent.
+- `compression`: accept compressed responses and automatically decompress
+  them. The only compression scheme currently supported is `gzip`.
 
 Note that for TLS connections, the client uses both the list of TCP options
 and the list of TLS options.

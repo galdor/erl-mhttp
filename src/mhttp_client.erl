@@ -31,7 +31,8 @@
                      transport => mhttp:transport(),
                      tcp_options => [gen_tcp:connect_option()],
                      tls_options => [ssl:tls_client_option()],
-                     header => mhttp:header()}.
+                     header => mhttp:header(),
+                     compression => boolean()}.
 
 -type state() :: #{options := options(),
                    transport := mhttp:transport(),
@@ -164,12 +165,40 @@ do_send_request(State, Request0, _RequestOptions) ->
 
 -spec finalize_request(state(), mhttp:request()) -> mhttp:request().
 finalize_request(#{options := Options}, Request) ->
-  #{host := Host, port := Port, transport := Transport} = Options,
-  Header = maps:get(header, Options, []),
-  Funs = [fun (R) -> mhttp_request:prepend_header(R, Header) end,
-          fun (R) -> mhttp_request:ensure_host(R, Host, Port, Transport) end,
+  Funs = [compression_finalization_fun(Options),
+          header_finalization_fun(Options),
+          host_finalization_fun(Options),
           fun mhttp_request:maybe_add_content_length/1],
   lists:foldl(fun (Fun, R) -> Fun(R) end, Request, Funs).
+
+-spec header_finalization_fun(options()) ->
+        fun((mhttp:request()) -> mhttp:request()).
+header_finalization_fun(Options) ->
+  fun (Request) ->
+      Header = maps:get(header, Options, []),
+      mhttp_request:prepend_header(Request, Header)
+  end.
+
+-spec host_finalization_fun(options()) ->
+        fun((mhttp:request()) -> mhttp:request()).
+host_finalization_fun(#{host := Host, port := Port, transport := Transport}) ->
+  fun (Request) ->
+      mhttp_request:ensure_host(Request, Host, Port, Transport)
+  end.
+
+-spec compression_finalization_fun(options()) ->
+        fun((mhttp:request()) -> mhttp:request()).
+compression_finalization_fun(Options) ->
+  fun (Request) ->
+      Header = mhttp_request:header(Request),
+      Header2 = case maps:get(compression, Options, false) of
+                 true ->
+                   mhttp_header:add(Header, <<"Accept-Encoding">>, <<"gzip">>);
+                  false ->
+                    Header
+                end,
+      Request#{header => Header2}
+  end.
 
 -spec read_response(state()) -> {state(), mhttp:response()}.
 read_response(State = #{parser := Parser}) ->

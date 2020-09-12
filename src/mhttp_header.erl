@@ -17,9 +17,10 @@
 -export([new/0,
          append/2,
          contains/2, find/2, find_all/2, find_all_concat/2, find_all_split/2,
+         find_token_list/2,
          add/3, add_field/2, add_if_missing/3, remove/2,
          content_length/1,
-         transfer_encoding/1,
+         transfer_encoding/1, content_encoding/1,
          has_connection_close/1,
          body/1]).
 
@@ -82,6 +83,11 @@ find_all_split(Header, Name) ->
       lists:map(fun (V) -> string:trim(V, both, " \t") end, Values)
   end.
 
+-spec find_token_list(mhttp:header(), mhttp:header_name()) -> [binary()].
+find_token_list(Header, Name) ->
+  Values = mhttp_header:find_all_split(Header, Name),
+  lists:map(fun string:lowercase/1, Values).
+
 -spec add(mhttp:header(), mhttp:header_name(), mhttp:header_value()) ->
         mhttp:header().
 add(Header, Name, Value) ->
@@ -102,7 +108,11 @@ add_if_missing(Header, Name, Value) ->
       add(Header, Name, Value)
   end.
 
--spec remove(mhttp:header(), mhttp:header_name()) -> mhttp:header().
+-spec remove(mhttp:header(), mhttp:header_name() | [mhttp:header_name()]) ->
+        mhttp:header().
+remove(Header, Names) when is_list(Names) ->
+  lists:foldl(fun (Name, H) -> remove(H, Name) end,
+              Header, Names);
 remove(Header, Name) ->
   lists:filter(fun ({N, _}) ->
                    not mhttp:header_name_equal(N, Name)
@@ -126,8 +136,11 @@ content_length(Header) ->
 
 -spec transfer_encoding(mhttp:header()) -> Codings :: [binary()].
 transfer_encoding(Header) ->
-  Values = mhttp_header:find_all_split(Header, <<"Transfer-Encoding">>),
-  lists:map(fun string:lowercase/1, Values).
+  find_token_list(Header, <<"Transfer-Encoding">>).
+
+-spec content_encoding(mhttp:header()) -> Codings :: [binary()].
+content_encoding(Header) ->
+  find_token_list(Header, <<"Content-Encoding">>).
 
 -spec chunked_transfer_coding(mhttp:header()) ->
         intermediary | last | not_found.
