@@ -74,6 +74,10 @@ A pool is a set of HTTP clients. Pools can send requests to any destination
 and will create a new client for each new destination. Connections are kept
 alive and reused when possible.
 
+Pools can maintain multiple connections to a single destination. Destinations
+are identified by a client key of the form `{Host, Port, Transport}`. When
+multiple connections are available, pools return a random one.
+
 ## Configuration
 Pools are created by `mhttp_pool_sup` supervisor based on the configuration of
 the `mhttp` application. Pools are identified by an atom. Each pool process is
@@ -102,6 +106,8 @@ The following pool options are available:
 - `client_options`: the set of client options used for every client in the
   pool. Note that `host`, `port` and `transport` will be overridden for each
   connection.
+- `max_connections_per_key`: the maximum number of connections established for
+  each client key (default: `1`).
 
 ## Usage
 The `pool` request option is used to select which pool will be used to send

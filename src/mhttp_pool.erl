@@ -28,7 +28,8 @@
 -type pool_name() :: mhttp:gen_server_name().
 -type pool_ref() :: mhttp:gen_server_ref().
 
--type options() :: #{client_options => mhttp_client:options()}.
+-type options() :: #{client_options => mhttp_client:options(),
+                     max_connections_per_key => pos_integer()}.
 
 -type state() :: #{options := options(),
                    clients_by_key := ets:tid(),
@@ -69,7 +70,7 @@ send_request(Ref, Request, Options) ->
 init([Options]) ->
   logger:update_process_metadata(#{domain => [mhttp, pool]}),
   process_flag(trap_exit, true),
-  ClientsByKey = ets:new(mhttp_pool_clients_by_key, [set]),
+  ClientsByKey = ets:new(mhttp_pool_clients_by_key, [bag]),
   ClientsByPid = ets:new(mhttp_pool_clients_by_pid, [set]),
   State = #{options => Options,
             clients_by_key => ClientsByKey,
@@ -122,17 +123,20 @@ handle_info(Msg, State) ->
 
 -spec get_or_create_client(state(), mhttp:client_key()) ->
         mhttp_client:client_ref().
-get_or_create_client(State = #{clients_by_key := ClientsByKey,
+get_or_create_client(State = #{options := Options,
+                               clients_by_key := ClientsByKey,
                                clients_by_pid := ClientsByPid},
                      Key) ->
+  MaxConns = maps:get(max_connections_per_key, Options, 1),
   case ets:lookup(ClientsByKey, Key) of
-    [{_, Pid}] ->
-      Pid;
-    [] ->
+    Entries when length(Entries) < MaxConns ->
       Pid = create_client(State, Key),
       ets:insert(ClientsByKey, {Key, Pid}),
       ets:insert(ClientsByPid, {Pid, Key}),
       ?LOG_DEBUG("added new client ~p (~p)", [Key, Pid]),
+      Pid;
+    Entries ->
+      {_, Pid} = lists:nth(rand:uniform(length(Entries)), Entries),
       Pid
   end.
 
@@ -152,13 +156,9 @@ create_client(#{options := Options}, {Host, Port, Transport}) ->
 -spec delete_client(state(), pid()) -> ok.
 delete_client(#{clients_by_key := ClientsByKey,
                 clients_by_pid := ClientsByPid}, Pid) ->
-  %% Note that we can try to delete a client from tables after receiving an
-  %% exit signal because the client crashed during its initialization (e.g. if
-  %% the connection failed); in that case, the client will not be registered
-  %% in tables.
   case ets:lookup(ClientsByPid, Pid) of
-    [{_, Key}] ->
-      ets:delete(ClientsByKey, Key),
+    [{Pid, Key}] ->
+      ets:delete_object(ClientsByKey, {Key, Pid}),
       ets:delete(ClientsByPid, Pid),
       ok;
     [] ->
