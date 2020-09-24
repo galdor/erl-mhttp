@@ -235,8 +235,14 @@ set_socket_active(#{transport := Transport, socket := Socket}, Active) ->
           tcp -> fun inet:setopts/2;
           tls -> fun ssl:setopts/2
         end,
-  ok = Fun(Socket, [{active, Active}]),
-  ok.
+  case Fun(Socket, [{active, Active}]) of
+    ok ->
+      ok;
+    {error, closed} ->
+      on_connection_closed();
+    {error, Reason} ->
+      error({setopts, Reason})
+  end.
 
 -spec send(state(), iodata()) -> ok.
 send(#{transport := Transport, socket := Socket}, Data) ->
