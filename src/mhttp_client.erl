@@ -101,17 +101,16 @@ handle_cast(Msg, State) ->
   ?LOG_WARNING("unhandled cast ~p", [Msg]),
   {noreply, State}.
 
+handle_info({Event, _}, _State) when Event =:= tcp_closed;
+                                          Event =:= ssl_closed ->
+  ?LOG_INFO("connection closed"),
+  exit(normal);
+
 handle_info({tcp, _Socket, Data}, _State) ->
   error({unexpected_data, Data});
 
-handle_info({tcp_closed, _}, _State) ->
-  on_connection_closed();
-
 handle_info({ssl, _Socket, Data}, _State) ->
   error({unexpected_data, Data});
-
-handle_info({ssl_closed, _}, _State) ->
-  on_connection_closed();
 
 handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
@@ -239,7 +238,7 @@ set_socket_active(#{transport := Transport, socket := Socket}, Active) ->
     ok ->
       ok;
     {error, closed} ->
-      on_connection_closed();
+      error(connection_closed);
     {error, Reason} ->
       error({setopts, Reason})
   end.
@@ -254,7 +253,7 @@ send(#{transport := Transport, socket := Socket}, Data) ->
     ok ->
       ok;
     {error, closed} ->
-      on_connection_closed();
+      error(connection_closed);
     {error, timeout} ->
       error(write_timeout)
   end.
@@ -270,15 +269,10 @@ recv(#{options := Options, transport := Transport, socket := Socket}, N) ->
     {ok, Data} ->
       Data;
     {error, closed} ->
-      on_connection_closed();
+      error(connection_closed);
     {error, timeout} ->
       error(read_timeout)
   end.
-
--spec on_connection_closed() -> no_return().
-on_connection_closed() ->
-  ?LOG_INFO("connection closed"),
-  exit(normal).
 
 -spec connection_needs_closing(mhttp:response()) -> boolean().
 connection_needs_closing(Response) ->
