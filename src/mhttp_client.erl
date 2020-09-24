@@ -87,6 +87,8 @@ handle_call({send_request, Request, Options}, _From, State) ->
           {reply, {ok, Response}, State2}
       end
   catch
+    error:connection_closed ->
+      {stop, connection_closed, {error, connection_closed}, State};
     error:read_timeout ->
       {stop, read_timeout, {error, read_timeout}, State};
     error:write_timeout ->
