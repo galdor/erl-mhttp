@@ -67,7 +67,7 @@ prepend_header(Request, Header) ->
 ensure_host(Request, Host, Port, Transport) ->
   %% We take care not to include the port in the value if this is the default
   %% port for the transport used; infortunately, some servers will respond
-  %% with Location header field based on the value of the Host header field
+  %% with a Location header field based on the value of the Host header field
   %% without any host/port analysis. For example, GitHub will redirect a
   %% request for http://github.com with a Host header field set to
   %% "github.com:80" to "https://github.com:80/".
