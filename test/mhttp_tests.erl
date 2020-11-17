@@ -12,6 +12,15 @@
 %% OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 %% PERFORMANCE OF THIS SOFTWARE.
 
--module(mhttp_router_test).
+-module(mhttp_tests).
 
 -include_lib("eunit/include/eunit.hrl").
+
+header_name_equal_test_() ->
+  Eq = fun mhttp:header_name_equal/2,
+  [?_assertNot(Eq(<<"foo">>, <<"bar">>)),
+   ?_assertNot(Eq(<<"foo">>, <<"foo2">>)),
+   ?_assertNot(Eq(<<"foo">>, <<"fo">>)),
+   ?_assert(Eq(<<"foo">>, <<"foo">>)),
+   ?_assert(Eq(<<"foo">>, <<"Foo">>)),
+   ?_assert(Eq(<<"FoO">>, <<"fOo">>))] .

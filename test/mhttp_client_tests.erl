@@ -12,7 +12,7 @@
 %% OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 %% PERFORMANCE OF THIS SOFTWARE.
 
--module(mhttp_client_test).
+-module(mhttp_client_tests).
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -32,7 +32,7 @@ client_test_() ->
                   {port, 8081},
                   {server_root, ServerRoot},
                   {document_root, DocumentRoot},
-                  {modules, [mhttp_httpd_mod_test]}],
+                  {modules, [mhttp_httpd_mod_tests]}],
        {ok, Pid} = inets:start(httpd, Options),
        Pid
    end,

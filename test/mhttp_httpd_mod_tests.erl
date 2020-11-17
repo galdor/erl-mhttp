@@ -12,7 +12,7 @@
 %% OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 %% PERFORMANCE OF THIS SOFTWARE.
 
--module(mhttp_httpd_mod_test).
+-module(mhttp_httpd_mod_tests).
 
 -export([do/1]).
 
