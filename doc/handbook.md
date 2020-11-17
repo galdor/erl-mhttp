@@ -57,11 +57,10 @@ The following client options are available:
 - `connection_timeout`: the timeout for the initial connection to the server.
 - `read_timeout`: the timeout of each read operation when reading a
   response. Note that the timeout used for write operations is configured in
-  `tcp_options` with `send_timeout` as specified in the [Erlang
+  `connect_options` with `send_timeout` as specified in the [Erlang
   documentation](https://erlang.org/doc/man/gen_tcp.html).
-- `tcp_options`: a list of `gen_tcp` client options to apply.
-- `tls_options`: a list of `ssl` client options to apply (only used if the
-  transport is `tls`).
+- `connect_options`: a list of `gen_tcp` client options and/or `ssl` client
+  options to apply.
 - `header`: a set of default header fields used for all requests sent.
 - `compression`: accept compressed responses and automatically decompress
   them. The only compression scheme currently supported is `gzip`.

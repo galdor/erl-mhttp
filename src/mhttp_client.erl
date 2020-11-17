@@ -21,18 +21,19 @@
 -export([start_link/1, send_request/2, send_request/3]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
--export_type([name/0, ref/0, options/0]).
+-export_type([name/0, ref/0, connect_options/0, options/0]).
 
 -type name() :: et_gen_server:name().
 -type ref() :: et_gen_server:ref().
+
+-type connect_options() :: [gen_tcp:connect_option() | ssl:tls_client_option()].
 
 -type options() :: #{host => uri:host(),
                      port => uri:port_number(),
                      transport => mhttp:transport(),
                      connection_timeout => timeout(),
                      read_timeout => timeout(),
-                     tcp_options => [gen_tcp:connect_option()],
-                     tls_options => [ssl:tls_client_option()],
+                     connect_options => connect_options(),
                      header => mhttp:header(),
                      compression => boolean()}.
 
@@ -59,13 +60,12 @@ send_request(Ref, Request, Options) ->
 -spec init(list()) -> et_gen_server:init_ret(state()).
 init([Options]) ->
   logger:update_process_metadata(#{domain => [mhttp, client]}),
-  State = try
-            connect(Options)
-          catch
-            error:Reason ->
-              {stop, Reason}
-          end,
-  {ok, State}.
+  case connect(Options) of
+    {ok, State} ->
+      {ok, State};
+    {error, Reason} ->
+      {stop, Reason}
+  end.
 
 -spec terminate(et_gen_server:terminate_reason(), state()) -> ok.
 terminate(_Reason, #{transport := tcp, socket := Socket}) ->
@@ -127,57 +127,43 @@ handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
   {noreply, State}.
 
--spec connect(options()) -> state().
+-spec options_transport(options()) -> mhttp:transport().
+options_transport(Options) ->
+  maps:get(transport, Options, tcp).
+
+-spec options_host(options()) -> binary().
+options_host(Options) ->
+  maps:get(host, Options, <<"localhost">>).
+
+-spec options_port(options()) -> inet:port_number().
+options_port(Options) ->
+  maps:get(port, Options, 80).
+
+-spec connect(options()) -> {ok, state()} | {error, term()}.
 connect(Options) ->
-  case maps:get(transport, Options, tcp) of
-    tcp ->
-      connect_tcp(Options);
-    tls ->
-      connect_tls(Options)
-  end.
-
--spec connect_tcp(options()) -> state().
-connect_tcp(Options) ->
-  Host = maps:get(host, Options, <<"localhost">>),
-  Port = maps:get(port, Options, 80),
+  Transport = options_transport(Options),
+  Host = options_host(Options),
+  Port = options_port(Options),
   Timeout = maps:get(connection_timeout, Options, 5000),
-  RequiredTCPOptions = [{mode, binary}],
-  TCPOptions = RequiredTCPOptions ++ maps:get(tcp_options, Options, []),
+  RequiredConnectOptions = [{mode, binary}],
+  ConnectOptions = RequiredConnectOptions ++
+    maps:get(connect_options, Options, []),
   ?LOG_INFO("connecting to ~s:~b", [Host, Port]),
   HostString = unicode:characters_to_list(Host),
-  case gen_tcp:connect(HostString, Port, TCPOptions, Timeout) of
+  Connect = case Transport of
+              tcp -> fun gen_tcp:connect/4;
+              tls -> fun ssl:connect/4
+            end,
+  case Connect(HostString, Port, ConnectOptions, Timeout) of
     {ok, Socket} ->
-      ?LOG_INFO("connection established"),
-      #{options => Options#{host => Host, port => Port},
-        transport => tcp,
-        socket => Socket,
-        parser => mhttp_parser:new(response)};
+      State = #{options => Options,
+                transport => Transport,
+                socket => Socket,
+                parser => mhttp_parser:new(response)},
+      {ok, State};
     {error, Reason} ->
       ?LOG_ERROR("connection failed: ~p", [Reason]),
-      error({connection_failure, {Host, Port, tcp}, Reason})
-  end.
-
--spec connect_tls(options()) -> state().
-connect_tls(Options) ->
-  Host = maps:get(host, Options, <<"localhost">>),
-  Port = maps:get(port, Options, 443),
-  Timeout = maps:get(connection_timeout, Options, 5000),
-  RequiredTLSOptions = [{mode, binary}],
-  TLSOptions = RequiredTLSOptions ++
-    maps:get(tcp_options, Options, []) ++
-    maps:get(tls_options, Options, []),
-  ?LOG_INFO("connecting to ~s:~b", [Host, Port]),
-  HostString = unicode:characters_to_list(Host),
-  case ssl:connect(HostString, Port, TLSOptions, Timeout) of
-    {ok, Socket} ->
-      ?LOG_INFO("connection established"),
-      #{options => Options#{host => Host, port => Port},
-        transport => tls,
-        socket => Socket,
-        parser => mhttp_parser:new(response)};
-    {error, Reason} ->
-      ?LOG_ERROR("connection failed: ~p", [Reason]),
-      error({connection_failure, {Host, Port, tls}, Reason})
+      {error, Reason}
   end.
 
 -spec do_send_request(state(), mhttp:request(), mhttp:request_options()) ->
@@ -210,7 +196,10 @@ header_finalization_fun(Options) ->
 
 -spec host_finalization_fun(options()) ->
         fun((mhttp:request()) -> mhttp:request()).
-host_finalization_fun(#{host := Host, port := Port, transport := Transport}) ->
+host_finalization_fun(Options) ->
+  Transport = options_transport(Options),
+  Host = options_host(Options),
+  Port = options_port(Options),
   fun (Request) ->
       mhttp_request:ensure_host(Request, Host, Port, Transport)
   end.
