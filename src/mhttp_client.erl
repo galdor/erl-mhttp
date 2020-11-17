@@ -82,22 +82,16 @@ terminate(_Reason, #{transport := tls, socket := Socket}) ->
 
 handle_call({send_request, Request, Options}, _From, State) ->
   try
-    do_send_request(State, Request, Options)
-  of
-    {State2, Response} ->
-      case connection_needs_closing(Response) of
-        true ->
-          {stop, normal, {ok, Response}, State2};
-        false ->
-          {reply, {ok, Response}, State2}
-      end
+    {State2, Response} = do_send_request(State, Request, Options),
+    case connection_needs_closing(Response) of
+      true ->
+        {stop, normal, {ok, Response}, State2};
+      false ->
+        {reply, {ok, Response}, State2}
+    end
   catch
-    error:connection_closed ->
-      {stop, connection_closed, {error, connection_closed}, State};
-    error:read_timeout ->
-      {stop, read_timeout, {error, read_timeout}, State};
-    error:write_timeout ->
-      {stop, write_timeout, {error, write_timeout}, State}
+    throw:{error, Reason} ->
+      {stop, normal, {error, Reason}, State}
   end;
 
 handle_call(Msg, From, State) ->
@@ -113,7 +107,7 @@ handle_cast(Msg, State) ->
 -spec handle_info(term(), state()) -> et_gen_server:handle_info_ret(state()).
 
 handle_info({Event, _}, _State) when Event =:= tcp_closed;
-                                          Event =:= ssl_closed ->
+                                     Event =:= ssl_closed ->
   ?LOG_INFO("connection closed"),
   exit(normal);
 
@@ -230,48 +224,52 @@ read_response(State = #{parser := Parser}) ->
 
 -spec set_socket_active(state(), boolean() | pos_integer()) -> ok.
 set_socket_active(#{transport := Transport, socket := Socket}, Active) ->
-  Fun = case Transport of
-          tcp -> fun inet:setopts/2;
-          tls -> fun ssl:setopts/2
-        end,
-  case Fun(Socket, [{active, Active}]) of
+  Setopts = case Transport of
+              tcp -> fun inet:setopts/2;
+              tls -> fun ssl:setopts/2
+            end,
+  case Setopts(Socket, [{active, Active}]) of
     ok ->
       ok;
     {error, closed} ->
-      error(connection_closed);
+      throw({error, connection_closed});
     {error, Reason} ->
-      error({setopts, Reason})
+      throw({error, {setopts, Reason}})
   end.
 
 -spec send(state(), iodata()) -> ok.
 send(#{transport := Transport, socket := Socket}, Data) ->
-  Fun = case Transport of
+  Send = case Transport of
           tcp -> fun gen_tcp:send/2;
           tls -> fun ssl:send/2
         end,
-  case Fun(Socket, Data) of
+  case Send(Socket, Data) of
     ok ->
       ok;
     {error, closed} ->
-      error(connection_closed);
+      throw({error, connection_closed});
     {error, timeout} ->
-      error(write_timeout)
+      throw({error, write_timeout});
+    {error, Reason} ->
+      throw({error, {send, Reason}})
   end.
 
 -spec recv(state(), non_neg_integer()) -> binary().
 recv(#{options := Options, transport := Transport, socket := Socket}, N) ->
-  Fun = case Transport of
+  Recv = case Transport of
           tcp -> fun gen_tcp:recv/3;
           tls -> fun ssl:recv/3
         end,
   Timeout = maps:get(read_timeout, Options, 30_000),
-  case Fun(Socket, N, Timeout) of
+  case Recv(Socket, N, Timeout) of
     {ok, Data} ->
       Data;
     {error, closed} ->
-      error(connection_closed);
+      throw({error, connection_closed});
     {error, timeout} ->
-      error(read_timeout)
+      throw({error, read_timeout});
+    {error, Reason} ->
+      throw({error, {recv, Reason}})
   end.
 
 -spec connection_needs_closing(mhttp:response()) -> boolean().

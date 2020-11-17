@@ -85,17 +85,6 @@ terminate(_Reason, _State) ->
 -spec handle_call(term(), {pid(), et_gen_server:request_id()}, state()) ->
         et_gen_server:handle_call_ret(state()).
 
-handle_call({get_client, Key}, _From, State) ->
-  try
-    Client = get_or_create_client(State, Key),
-    {reply, {ok, Client}, State}
-  catch
-    error:Reason ->
-      {reply, {error, Reason}, State};
-    exit:{Reason, Call} ->
-      {reply, {error, {client_failure, Reason, Call}}, State}
-  end;
-
 handle_call({send_request, Request, Options}, _From, State) ->
   MaxNbRedirections = maps:get(max_nb_redirections, Options, 5),
   try
@@ -103,10 +92,10 @@ handle_call({send_request, Request, Options}, _From, State) ->
                                         MaxNbRedirections),
     {reply, {ok, Response}, State}
   catch
-    error:Reason:Trace ->
-      {reply, {error, {Reason, Trace}}, State};
-    exit:{Reason, Call} ->
-      {reply, {error, {client_failure, Reason, Call}}, State}
+    throw:{error, Reason} ->
+      {reply, {error, Reason}, State};
+    exit:{Reason, _MFA} ->
+      {reply, {error, {client_error, Reason}}, State}
   end;
 
 handle_call(Msg, From, State) ->
@@ -149,8 +138,7 @@ get_or_create_client(State = #{options := Options,
       Pid
   end.
 
--spec create_client(state(), mhttp:client_key()) ->
-        mhttp_client:ref().
+-spec create_client(state(), mhttp:client_key()) -> mhttp_client:ref().
 create_client(#{options := Options}, {Host, Port, Transport}) ->
   ClientOptions0 = maps:get(client_options, Options, #{}),
   ClientOptions = ClientOptions0#{host => Host, port => Port,
@@ -159,7 +147,7 @@ create_client(#{options := Options}, {Host, Port, Transport}) ->
     {ok, Pid} ->
       Pid;
     {error, Reason} ->
-      error({client_failure, Reason})
+      throw({error, {client_error, Reason}})
   end.
 
 -spec delete_client(state(), pid()) -> ok.
@@ -188,7 +176,7 @@ request_target_and_key(Request) ->
                       NbRedirectionsLeft :: non_neg_integer()) ->
         {state(), mhttp:response()}.
 do_send_request(_State, _Request, _Options, 0) ->
-  error(too_many_redirections);
+  throw({error, too_many_redirections});
 do_send_request(State, Request, Options, NbRedirectionsLeft) ->
   {Target, Key} = request_target_and_key(Request),
   Client = get_or_create_client(State, Key),
@@ -210,5 +198,5 @@ do_send_request(State, Request, Options, NbRedirectionsLeft) ->
           {State, Response}
       end;
     {error, Reason} ->
-      error(Reason)
+      throw({error, Reason})
   end.

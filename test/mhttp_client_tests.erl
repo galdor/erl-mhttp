@@ -61,7 +61,7 @@ redirections() ->
   Result3 = send_request(#{method => get, target => URI},
                          #{follow_redirections => true,
                            max_nb_redirections => 1}),
-  ?assertMatch({error, {too_many_redirections, _}}, Result3).
+  ?assertMatch({error, too_many_redirections}, Result3).
 
 -spec send_request(mhttp:request()) -> {ok, mhttp:response()} | {error, term()}.
 send_request(Request) ->
