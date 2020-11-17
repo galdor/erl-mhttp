@@ -66,6 +66,8 @@ send_request(Ref, Request) ->
 send_request(Ref, Request, Options) ->
   gen_server:call(Ref, {send_request, Request, Options}, infinity).
 
+-spec init(list()) -> et_gen_server:init_ret(state()).
+
 init([Options]) ->
   logger:update_process_metadata(#{domain => [mhttp, pool]}),
   process_flag(trap_exit, true),
@@ -76,8 +78,12 @@ init([Options]) ->
             clients_by_pid => ClientsByPid},
   {ok, State}.
 
+-spec terminate(et_gen_server:terminate_reason(), state()) -> ok.
 terminate(_Reason, _State) ->
   ok.
+
+-spec handle_call(term(), {pid(), et_gen_server:request_id()}, state()) ->
+        et_gen_server:handle_call_ret(state()).
 
 handle_call({get_client, Key}, _From, State) ->
   try
@@ -107,9 +113,13 @@ handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),
   {noreply, State}.
 
+-spec handle_cast(term(), state()) -> et_gen_server:handle_cast_ret(state()).
+
 handle_cast(Msg, State) ->
   ?LOG_WARNING("unhandled cast ~p", [Msg]),
   {noreply, State}.
+
+-spec handle_info(term(), state()) -> et_gen_server:handle_info_ret(state()).
 
 handle_info({'EXIT', Pid, Reason}, State) ->
   ?LOG_DEBUG("client ~p exited (~p)", [Pid, Reason]),

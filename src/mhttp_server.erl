@@ -68,17 +68,22 @@ set_router(Ref, Router) ->
 find_route(Ref, Request, Context) ->
   gen_server:call(Ref, {find_route, Request, Context}, infinity).
 
+-spec init(list()) -> et_gen_server:init_ret(state()).
 init([Options]) ->
   logger:update_process_metadata(#{domain => [mhttp, server]}),
   State = listen(Options),
   spawn_acceptors(State),
   {ok, State}.
 
+-spec terminate(et_gen_server:terminate_reason(), state()) -> ok.
 terminate(Reason, State = #{socket := Socket}) ->
   gen_tcp:close(Socket),
   terminate(Reason, maps:remove(socket, State));
 terminate(_Reason, _State) ->
   ok.
+
+-spec handle_call(term(), {pid(), et_gen_server:request_id()}, state()) ->
+        et_gen_server:handle_call_ret(state()).
 
 handle_call({set_router, Router}, _From, State = #{options := Options}) ->
   ServerMiddlewares = maps:get(middlewares, Options, []),
@@ -104,9 +109,13 @@ handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),
   {noreply, State}.
 
+-spec handle_cast(term(), state()) -> et_gen_server:handle_cast_ret(state()).
+
 handle_cast(Msg, State) ->
   ?LOG_WARNING("unhandled cast ~p", [Msg]),
   {noreply, State}.
+
+-spec handle_info(term(), state()) -> et_gen_server:handle_info_ret(state()).
 
 handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),

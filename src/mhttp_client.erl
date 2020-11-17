@@ -56,6 +56,7 @@ send_request(Ref, Request) ->
 send_request(Ref, Request, Options) ->
   gen_server:call(Ref, {send_request, Request, Options}, infinity).
 
+-spec init(list()) -> et_gen_server:init_ret(state()).
 init([Options]) ->
   logger:update_process_metadata(#{domain => [mhttp, client]}),
   State = try
@@ -66,6 +67,7 @@ init([Options]) ->
           end,
   {ok, State}.
 
+-spec terminate(et_gen_server:terminate_reason(), state()) -> ok.
 terminate(_Reason, #{transport := tcp, socket := Socket}) ->
   ?LOG_DEBUG("closing connection"),
   gen_tcp:close(Socket),
@@ -74,6 +76,9 @@ terminate(_Reason, #{transport := tls, socket := Socket}) ->
   ?LOG_DEBUG("closing connection"),
   ssl:close(Socket),
   ok.
+
+-spec handle_call(term(), {pid(), et_gen_server:request_id()}, state()) ->
+        et_gen_server:handle_call_ret(state()).
 
 handle_call({send_request, Request, Options}, _From, State) ->
   try
@@ -99,9 +104,13 @@ handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),
   {noreply, State}.
 
+-spec handle_cast(term(), state()) -> et_gen_server:handle_cast_ret(state()).
+
 handle_cast(Msg, State) ->
   ?LOG_WARNING("unhandled cast ~p", [Msg]),
   {noreply, State}.
+
+-spec handle_info(term(), state()) -> et_gen_server:handle_info_ret(state()).
 
 handle_info({Event, _}, _State) when Event =:= tcp_closed;
                                           Event =:= ssl_closed ->
