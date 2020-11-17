@@ -29,7 +29,7 @@
 
 -type options() :: #{address => inet:socket_address(),
                      port => inet:port_number(),
-                     tcp_options => [gen_tcp:listen_option()],
+                     listen_options => [gen_tcp:listen_option()],
                      nb_acceptors => pos_integer(),
                      unavailable_service_handler => mhttp:handler(),
                      error_handler => mhttp:error_handler(),
@@ -125,14 +125,14 @@ handle_info(Msg, State) ->
 listen(Options) ->
   Address = maps:get(address, Options, loopback),
   Port = maps:get(port, Options, 80),
-  DefaultTCPOptions = [{ip, Address},
-                       {reuseaddr, true},
-                       {active, false},
-                       {send_timeout, 5000},
-                       {send_timeout_close, true},
-                       binary],
-  TCPOptions = DefaultTCPOptions ++ maps:get(tcp_options, Options, []),
-  case gen_tcp:listen(Port, TCPOptions) of
+  DefaultListenOptions = [{ip, Address},
+                          {reuseaddr, true},
+                          {active, false},
+                          {send_timeout, 5000},
+                          {send_timeout_close, true},
+                          binary],
+  ListenOptions = DefaultListenOptions ++ maps:get(listen_options, Options, []),
+  case gen_tcp:listen(Port, ListenOptions) of
     {ok, Socket} ->
       {ok, {LocalAddress, LocalPort}} = inet:sockname(Socket),
       ?LOG_INFO("listening on ~s:~b", [inet:ntoa(LocalAddress), LocalPort]),

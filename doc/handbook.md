@@ -121,7 +121,7 @@ The following server options are available:
 
 - `address`: the inet address the server to listen on (default: `loopback`).
 - `port`: the port number the server to listen on.
-- `tcp_options`: a list of `gen_tcp` listen options to apply.
+- `listen_options`: a list of `gen_tcp` listen options to apply.
 - `nb_acceptors`: the number of connection acceptor processes to start
   (default: 5).
 - `unavailable_service_handler`: the handler called when the server is not
