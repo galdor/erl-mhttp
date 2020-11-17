@@ -71,9 +71,13 @@ find_route(Ref, Request, Context) ->
 -spec init(list()) -> et_gen_server:init_ret(state()).
 init([Options]) ->
   logger:update_process_metadata(#{domain => [mhttp, server]}),
-  State = listen(Options),
-  spawn_acceptors(State),
-  {ok, State}.
+  case listen(Options) of
+    {ok, State} ->
+      spawn_acceptors(State),
+      {ok, State};
+    {error, Reason} ->
+      {stop, Reason}
+  end.
 
 -spec terminate(et_gen_server:terminate_reason(), state()) -> ok.
 terminate(Reason, State = #{socket := Socket}) ->
@@ -121,7 +125,7 @@ handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
   {noreply, State}.
 
--spec listen(options()) -> state().
+-spec listen(options()) -> {ok, state()} | {error, term()}.
 listen(Options) ->
   Address = maps:get(address, Options, loopback),
   Port = maps:get(port, Options, 80),
@@ -136,11 +140,12 @@ listen(Options) ->
     {ok, Socket} ->
       {ok, {LocalAddress, LocalPort}} = inet:sockname(Socket),
       ?LOG_INFO("listening on ~s:~b", [inet:ntoa(LocalAddress), LocalPort]),
-      #{options => Options#{address => Address, port => Port},
-        socket => Socket};
+      State = #{options => Options,
+                socket => Socket},
+      {ok, State};
     {error, Reason} ->
       ?LOG_ERROR("cannot listen for connections: ~p", [Reason]),
-      error({listen_failure, {Address, Port}, Reason})
+      {error, Reason}
   end.
 
 -spec spawn_acceptors(state()) -> ok.
