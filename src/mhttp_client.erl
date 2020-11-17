@@ -21,10 +21,10 @@
 -export([start_link/1, send_request/2, send_request/3]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
--export_type([client_name/0, client_ref/0, options/0]).
+-export_type([name/0, ref/0, options/0]).
 
--type client_name() :: mhttp:gen_server_name().
--type client_ref() :: mhttp:gen_server_ref().
+-type name() :: et_gen_server:name().
+-type ref() :: et_gen_server:ref().
 
 -type options() :: #{host => uri:host(),
                      port => uri:port_number(),
@@ -46,12 +46,12 @@
 start_link(Options) ->
   gen_server:start_link(?MODULE, [Options], []).
 
--spec send_request(client_ref(), mhttp:request()) ->
+-spec send_request(ref(), mhttp:request()) ->
         {mhttp:response()} | {error, term()}.
 send_request(Ref, Request) ->
   send_request(Ref, Request, #{}).
 
--spec send_request(client_ref(), mhttp:request(), mhttp:request_options()) ->
+-spec send_request(ref(), mhttp:request(), mhttp:request_options()) ->
         {ok, mhttp:response()} | {error, term()}.
 send_request(Ref, Request, Options) ->
   gen_server:call(Ref, {send_request, Request, Options}, infinity).

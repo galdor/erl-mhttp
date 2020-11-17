@@ -22,10 +22,10 @@
          set_router/2, find_route/3]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
--export_type([server_name/0, server_ref/0, options/0]).
+-export_type([name/0, ref/0, options/0]).
 
--type server_name() :: mhttp:gen_server_name().
--type server_ref() :: mhttp:gen_server_ref().
+-type name() :: et_gen_server:name().
+-type ref() :: et_gen_server:ref().
 
 -type options() :: #{address => inet:socket_address(),
                      port => inet:port_number(),
@@ -50,20 +50,20 @@ process_name(Id) ->
 start_link(Options) ->
   gen_server:start_link(?MODULE, [Options], []).
 
--spec start_link(server_name(), options()) -> Result when
+-spec start_link(name(), options()) -> Result when
     Result :: {ok, pid()} | ignore | {error, term()}.
 start_link(Name, Options) ->
   gen_server:start_link(Name, ?MODULE, [Options], []).
 
--spec stop(server_ref()) -> ok.
+-spec stop(ref()) -> ok.
 stop(Ref) ->
   gen_server:stop(Ref).
 
--spec set_router(server_ref(), mhttp_router:router()) -> ok.
+-spec set_router(ref(), mhttp_router:router()) -> ok.
 set_router(Ref, Router) ->
   gen_server:call(Ref, {set_router, Router}, infinity).
 
--spec find_route(server_ref(), mhttp:request(), mhttp:handler_context()) ->
+-spec find_route(ref(), mhttp:request(), mhttp:handler_context()) ->
         {mhttp_router:router(), mhttp:route(), mhttp:handler_context()}.
 find_route(Ref, Request, Context) ->
   gen_server:call(Ref, {find_route, Request, Context}, infinity).

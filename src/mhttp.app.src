@@ -24,6 +24,7 @@
    [kernel,
     stdlib,
     ssl,
+    et,
     uri]},
   {env, []},
   {modules, []},

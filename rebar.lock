@@ -1,4 +1,8 @@
-[{<<"uri">>,
+[{<<"et">>,
+  {git,"https://github.com/galdor/erl-et.git",
+       {ref,"38ccbe694fe39eb7c284f6e850eca0d625b7e41a"}},
+  0},
+ {<<"uri">>,
   {git,"https://github.com/galdor/erl-uri.git",
        {ref,"d4f63408b1f856e6118b4e932bc31636ee671a12"}},
   0}].

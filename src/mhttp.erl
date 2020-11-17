@@ -19,8 +19,7 @@
          path_variable/2,
          header_name_equal/2]).
 
--export_type([gen_server_name/0, gen_server_ref/0,
-              pool_id/0, server_id/0,
+-export_type([pool_id/0, server_id/0,
               transport/0,
               client_key/0,
               request/0, request_options/0,
@@ -33,16 +32,6 @@
               handler_fun/0, handler/0, error_handler/0,
               handler_context/0,
               stack_item/0]).
-
--type gen_server_name() :: {local, term()}
-                         | {global, term()}
-                         | {via, atom(), term()}.
-
--type gen_server_ref() :: term()
-                        | {term(), atom()}
-                        | {global, term()}
-                        | {via, atom(), term()}
-                        | pid().
 
 -type pool_id() :: atom().
 -type server_id() :: atom().
@@ -132,7 +121,7 @@ send_request(Request, Options) ->
   PoolRef = mhttp_pool:process_name(PoolId),
   mhttp_pool:send_request(PoolRef, Request, Options).
 
--spec start_server(mhttp:server_id(), mhttp_server:options()) ->
+-spec start_server(server_id(), mhttp_server:options()) ->
         supervisor:startchild_ret().
 start_server(Id, Options) ->
   mhttp_server_sup:start_server(Id, Options).

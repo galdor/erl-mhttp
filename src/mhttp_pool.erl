@@ -23,10 +23,10 @@
          send_request/2, send_request/3]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
--export_type([pool_name/0, pool_ref/0, options/0]).
+-export_type([name/0, ref/0, options/0]).
 
--type pool_name() :: mhttp:gen_server_name().
--type pool_ref() :: mhttp:gen_server_ref().
+-type name() :: et_gen_server:name().
+-type ref() :: et_gen_server:ref().
 
 -type options() :: #{client_options => mhttp_client:options(),
                      max_connections_per_key => pos_integer()}.
@@ -40,29 +40,28 @@ process_name(Id) ->
   Name = <<"mhttp_pool_", (atom_to_binary(Id))/binary>>,
   binary_to_atom(Name).
 
--spec start_link(pool_name() | options()) -> Result when
+-spec start_link(name() | options()) -> Result when
     Result :: {ok, pid()} | ignore | {error, term()}.
 start_link(Options) when is_map(Options) ->
   gen_server:start_link(?MODULE, [Options], []);
 start_link(Name) ->
   start_link(Name, #{}).
 
--spec start_link(pool_name(), options()) -> Result when
+-spec start_link(name(), options()) -> Result when
     Result :: {ok, pid()} | ignore | {error, term()}.
 start_link(Name, Options) ->
   gen_server:start_link(Name, ?MODULE, [Options], []).
 
--spec stop(pool_ref()) -> ok.
+-spec stop(ref()) -> ok.
 stop(Ref) ->
   gen_server:stop(Ref).
 
--spec send_request(pool_ref(), mhttp:request()) ->
+-spec send_request(ref(), mhttp:request()) ->
         {ok, mhttp:response()} | {error, term()}.
 send_request(Ref, Request) ->
   send_request(Ref, Request, #{}).
 
--spec send_request(pool_ref(), mhttp:request(),
-                   mhttp:request_options()) ->
+-spec send_request(ref(), mhttp:request(), mhttp:request_options()) ->
         {ok, mhttp:response()} | {error, term()}.
 send_request(Ref, Request, Options) ->
   gen_server:call(Ref, {send_request, Request, Options}, infinity).
@@ -122,7 +121,7 @@ handle_info(Msg, State) ->
   {noreply, State}.
 
 -spec get_or_create_client(state(), mhttp:client_key()) ->
-        mhttp_client:client_ref().
+        mhttp_client:ref().
 get_or_create_client(State = #{options := Options,
                                clients_by_key := ClientsByKey,
                                clients_by_pid := ClientsByPid},
@@ -141,7 +140,7 @@ get_or_create_client(State = #{options := Options,
   end.
 
 -spec create_client(state(), mhttp:client_key()) ->
-        mhttp_client:client_ref().
+        mhttp_client:ref().
 create_client(#{options := Options}, {Host, Port, Transport}) ->
   ClientOptions0 = maps:get(client_options, Options, #{}),
   ClientOptions = ClientOptions0#{host => Host, port => Port,
