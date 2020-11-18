@@ -42,7 +42,6 @@ server_child_specs() ->
 
 -spec server_child_spec(mhttp:server_id(), mhttp_server:options()) ->
         supervisor:child_spec().
-server_child_spec(ChildId, Options) ->
-  Name = mhttp_server:process_name(ChildId),
-  #{id => ChildId,
-    start => {mhttp_server, start_link, [{local, Name}, Options]}}.
+server_child_spec(Id, Options) ->
+  #{id => Id,
+    start => {mhttp_server, start_link, [Id, Options]}}.

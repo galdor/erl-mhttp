@@ -27,7 +27,8 @@
                      error_handler := mhttp:error_handler(),
                      idle_timeout := pos_integer(),
                      address => inet:ip_address(),
-                     port => inet:port_number()}.
+                     port => inet:port_number(),
+                     server => mhttp:server_id()}.
 
 -type state() :: #{options := options(),
                    socket => inet:socket(),
@@ -118,7 +119,7 @@ process_request(Request, State = #{options := Options}) ->
         ErrHandler(Request, #{}, Reason, Trace)
     end,
   Response = finalize_response(State, Response0),
-  log_request(Request, Response, Context),
+  log_request(Request, Response, Context, State),
   send_response(Response, State),
   State.
 
@@ -239,10 +240,10 @@ schedule_idle_timeout(State = #{options := Options}) ->
   Timer = erlang:send_after(Timeout, self(), idle_timeout),
   State#{idle_timer => Timer}.
 
--spec log_request(mhttp:request(), mhttp:response(),
-                  mhttp:handler_context()) -> ok.
-log_request(Request, Response, Context) ->
+-spec log_request(mhttp:request(), mhttp:response(), mhttp:handler_context(),
+                  state()) -> ok.
+log_request(Request, Response, Context, #{options := Options}) ->
   StartTime = maps:get(start_time, Context),
-  Server = undefined,
+  Server = maps:get(server, Options, undefined),
   Address = maps:get(client_address, Context),
   mhttp_log:log_incoming_request(Request, Response, StartTime, Server, Address).

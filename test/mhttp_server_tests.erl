@@ -19,12 +19,11 @@
 server_test_() ->
   {setup,
    fun () ->
-       Name = mhttp_server:process_name(test),
        Options = #{port => 8080},
-       {ok, _} = mhttp_server:start_link({local, Name}, Options)
+       {ok, _} = mhttp_server:start_link(test, Options)
    end,
    fun (_) ->
-       mhttp_server:stop(mhttp_server:process_name(test))
+       mhttp_server:stop(test)
    end,
    [fun start_stop/0,
     fun no_router/0,

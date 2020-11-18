@@ -36,23 +36,26 @@
                      idle_timeout => pos_integer(),
                      middlewares => [mhttp:middleware()]}.
 
--type state() :: #{options := options(),
+-type state() :: #{id := mhttp:server_id(),
+                   options := options(),
                    socket := inet:socket(),
                    router => mhttp_router:router()}.
 
 -spec process_name(mhttp:server_id()) -> atom().
 process_name(Id) ->
-  Name = <<"mhttp_server_", (atom_to_binary(Id))/binary>>,
+ Name = <<"mhttp_server_", (atom_to_binary(Id))/binary>>,
   binary_to_atom(Name).
 
--spec start_link(name(), options()) -> Result when
+-spec start_link(mhttp:server_id(), options()) -> Result when
     Result :: {ok, pid()} | ignore | {error, term()}.
-start_link(Name, Options) ->
-  gen_server:start_link(Name, ?MODULE, [Options], []).
+start_link(Id, Options) ->
+  Name = mhttp_server:process_name(Id),
+  gen_server:start_link({local, Name}, ?MODULE, [Id, Options], []).
 
--spec stop(ref()) -> ok.
-stop(Ref) ->
-  gen_server:stop(Ref).
+-spec stop(mhttp:server_id()) -> ok.
+stop(Id) ->
+  Name = mhttp_server:process_name(Id),
+  gen_server:stop(Name).
 
 -spec set_router(ref(), mhttp_router:router()) -> ok.
 set_router(Ref, Router) ->
@@ -65,9 +68,9 @@ find_route(Ref, Request, Context) ->
   gen_server:call(Ref, {find_route, Request, Context}, infinity).
 
 -spec init(list()) -> et_gen_server:init_ret(state()).
-init([Options]) ->
-  logger:update_process_metadata(#{domain => [mhttp, server]}),
-  case listen(Options) of
+init([Id, Options]) ->
+  logger:update_process_metadata(#{domain => [mhttp, server, Id]}),
+  case listen(Id, Options) of
     {ok, State} ->
       spawn_acceptors(State),
       {ok, State};
@@ -125,8 +128,8 @@ handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
   {noreply, State}.
 
--spec listen(options()) -> {ok, state()} | {error, term()}.
-listen(Options) ->
+-spec listen(mhttp:server_id(), options()) -> {ok, state()} | {error, term()}.
+listen(Id, Options) ->
   Address = maps:get(address, Options, loopback),
   Port = maps:get(port, Options, 80),
   DefaultListenOptions = [{ip, Address},
@@ -140,7 +143,8 @@ listen(Options) ->
     {ok, Socket} ->
       {ok, {LocalAddress, LocalPort}} = inet:sockname(Socket),
       ?LOG_INFO("listening on ~s:~b", [inet:ntoa(LocalAddress), LocalPort]),
-      State = #{options => Options,
+      State = #{id => Id,
+                options => Options,
                 socket => Socket},
       {ok, State};
     {error, Reason} ->
@@ -157,10 +161,11 @@ spawn_acceptors(State = #{options := Options, socket := Socket}) ->
   mhttp_acceptor_sup:start_children(AcceptorSup, NbAcceptors).
 
 -spec connection_options(state()) -> mhttp_connection:options().
-connection_options(#{options := Options}) ->
+connection_options(#{id := Id, options := Options}) ->
   ErrorHandler = maps:get(error_handler, Options,
                           fun mhttp_handlers:error_handler/4),
   IdleTimeout = maps:get(idle_timeout, Options, 10_000),
   #{server_pid => self(),
     error_handler => ErrorHandler,
-    idle_timeout => IdleTimeout}.
+    idle_timeout => IdleTimeout,
+    server => Id}.
