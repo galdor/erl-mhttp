@@ -118,20 +118,20 @@ remove(Header, Name) ->
                    not mhttp:header_name_equal(N, Name)
                end, Header).
 
--spec content_length(mhttp:header()) -> {ok, pos_integer()} | error.
+-spec content_length(mhttp:header()) -> {ok, pos_integer()} | {error, term()}.
 content_length(Header) ->
   case mhttp_header:find_all(Header, <<"Content-Length">>) of
     [] ->
-      error;
+      {error, not_found};
     [Value] ->
       try
         {ok, binary_to_integer(Value)}
       catch
         error:badarg ->
-          error({invalid_content_length, Value})
+          {error, invalid_content_length}
       end;
     _Values ->
-      error(multiple_content_length_fields)
+      {error, multiple_content_length_fields}
   end.
 
 -spec transfer_encoding(mhttp:header()) -> Codings :: [binary()].
@@ -158,23 +158,26 @@ has_connection_close(Header) ->
   Values = lists:map(fun string:lowercase/1, Values0),
   lists:member(<<"close">>, Values).
 
--spec body(mhttp:header()) -> {fixed, pos_integer()} | chunked | none.
+-spec body(mhttp:header()) -> {ok, Body} | {error, term()} when
+    Body :: {fixed, pos_integer()} | chunked | none.
 body(Header) ->
   %% See RFC 7230 3.3.3.
   case chunked_transfer_coding(Header) of
     last ->
-      chunked;
+      {ok, chunked};
     intermediary ->
       %% "If a Transfer-Encoding header field is present in a request and the
       %% chunked transfer coding is not the final encoding, the message body
       %% length cannot be determined reliably; the server MUST respond with
       %% the 400 (Bad Request) status code and then close the connection."
-      error(invalid_intermediary_chunked_encoding);
+      {error, invalid_intermediary_chunked_encoding};
     not_found ->
       case mhttp_header:content_length(Header) of
         {ok, Length} ->
-          {fixed, Length};
-        error ->
-          none
+          {ok, {fixed, Length}};
+        {error, not_found} ->
+          {ok, none};
+        {error, Reason} ->
+          {error, Reason}
       end
   end.

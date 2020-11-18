@@ -16,7 +16,8 @@
 
 -export([new/1, parse/2]).
 
--export_type([msg_type/0, msg/0, parser/0]).
+-export_type([msg_type/0, msg/0, parser/0,
+              parse_result/0, parse_error_reason/0]).
 
 -type msg_type() :: request | response.
 -type msg() :: mhttp:request() | mhttp:response().
@@ -31,8 +32,11 @@
                | header | body | chunked_body | trailer
                | final.
 
--type parse_result() :: {ok, msg(), parser()} |
-                        {more, parser()}.
+-type parse_result() :: {ok, msg(), parser()}
+                      | {more, parser()}
+                      | {error, parse_error_reason()}.
+
+-type parse_error_reason() :: term(). % TODO
 
 -spec new(msg_type()) -> parser().
 new(MsgType) ->
@@ -42,7 +46,12 @@ new(MsgType) ->
 
 -spec parse(parser(), binary()) -> parse_result().
 parse(P = #{data := Data}, NewData) ->
-  parse(P#{data => <<Data/binary, NewData/binary>>}).
+  try
+    parse(P#{data => <<Data/binary, NewData/binary>>})
+  catch
+    throw:{error, Reason} ->
+      {error, Reason}
+  end.
 
 -spec parse(parser()) -> parse_result().
 
@@ -101,7 +110,7 @@ parse(P = #{data := Data, state := header, msg := Msg}) ->
 parse(P = #{data := Data, state := body, msg := Msg}) ->
   Header = maps:get(header, Msg, mhttp_header:new()),
   case mhttp_header:body(Header) of
-    {fixed, Length} ->
+    {ok, {fixed, Length}} ->
       case Data of
         <<Body:Length/binary, Rest/binary>> ->
           Msg2 = Msg#{body => Body},
@@ -109,10 +118,12 @@ parse(P = #{data := Data, state := body, msg := Msg}) ->
         _ ->
           {more, P}
       end;
-    chunked ->
+    {ok, chunked} ->
       parse(P#{state => chunked_body});
-    none ->
-      parse(P#{state => final})
+    {ok, none} ->
+      parse(P#{state => final});
+    {error, Reason} ->
+      throw({error, Reason})
   end;
 
 parse(P = #{data := Data, state := chunked_body, msg := Msg}) ->
@@ -128,7 +139,7 @@ parse(P = #{data := Data, state := chunked_body, msg := Msg}) ->
               Msg2 = Msg#{body => <<Body/binary, Chunk/binary>>},
               parse(P#{data => Rest2, state => chunked_body, msg => Msg2});
             <<_:Length/binary, _/binary>> ->
-              error(invalid_chunk);
+              throw({error, invalid_chunk});
             _ ->
               {more, P}
           end
@@ -200,7 +211,7 @@ decode_body(_Body, transfer, [<<"chunked">> | _Codings]) ->
   %% Any final chunked transfer encoding was removed from the list in
   %% decode_message_body/1. Any additional chunked encoding is invalid (RFC
   %% 7230 3.3.1.)
-  error(invalid_chunked_transfer_encoding);
+  throw({error, invalid_chunked_transfer_encoding});
 decode_body(Body, transfer, [<<"identity">> | Codings]) ->
   decode_body(Body, transfer, Codings);
 decode_body(Body, transfer, [<<"trailers">> | Codings]) ->
@@ -212,6 +223,6 @@ decode_body(Body, Type, [<<"x-gzip">> | Codings]) ->
   Body2 = mhttp_compression:decompress(gzip, Body),
   decode_body(Body2, Type, Codings);
 decode_body(_Body, content, [Coding | _Codings]) ->
-  error({unsupported_content_encoding, Coding});
+  throw({error, {unsupported_content_encoding, Coding}});
 decode_body(_Body, transfer, [Coding | _Codings]) ->
-  error({unsupported_transfer_encoding, Coding}).
+  throw({error, {unsupported_transfer_encoding, Coding}}).

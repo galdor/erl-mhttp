@@ -79,19 +79,16 @@ handle_info(idle_timeout, State) ->
 
 handle_info({tcp, _Socket, Data}, State = #{parser := Parser}) ->
   State2 = schedule_idle_timeout(State),
-  try
-    mhttp_parser:parse(Parser, Data)
-  of
+  case mhttp_parser:parse(Parser, Data) of
     {ok, Request, Parser2} ->
       State3 = process_request(Request, State#{parser => Parser2}),
       set_socket_active(State3, 1),
       {noreply, State3};
     {more, Parser2} ->
       set_socket_active(State2, 1),
-      {noreply, State#{parser => Parser2}}
-  catch
-    error:Reason:Trace ->
-      ?LOG_ERROR("request parsing error ~p ~p", [Reason, Trace]),
+      {noreply, State#{parser => Parser2}};
+    {error, Reason} ->
+      ?LOG_ERROR("invalid data: ~p", [Reason]),
       Response0 = #{status => 400},
       Response = finalize_response(State2, Response0),
       send_response(Response, State2),

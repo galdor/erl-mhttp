@@ -99,7 +99,7 @@ parse_request_line(Line) ->
     [Method, Target, Version] ->
       {parse_method(Method), parse_target(Target), parse_version(Version)};
     _ ->
-      error({invalid_request_line, Line})
+      throw({error, invalid_request_line})
   end.
 
 -spec parse_status_line(binary()) -> {mhttp:version(), mhttp:status(),
@@ -111,10 +111,10 @@ parse_status_line(Line) ->
         [Status, Reason] ->
           {parse_version(Version), parse_status(Status), Reason};
         _ ->
-          error({truncated_status, Rest})
+          throw({error, truncated_status})
       end;
     _ ->
-      error({truncated_version, Line})
+      throw({error, truncated_version})
   end.
 
 -spec parse_method(binary()) -> mhttp:method().
@@ -152,7 +152,7 @@ parse_version(<<"HTTP/1.1">>) ->
 parse_version(Data) ->
   case re:run(Data, <<"HTTP/[0-9].[0-9]">>, [anchored]) of
     nomatch ->
-      error({invalid_version, Data});
+      throw({error, invalid_version});
     _ ->
       Data
   end.
@@ -163,7 +163,7 @@ parse_status(Data) ->
     binary_to_integer(Data)
   catch
     error:badarg ->
-      error({invalid_status, Data})
+      throw({error, invalid_status})
   end.
 
 -spec parse_header_field(binary()) -> mhttp:header_field().
@@ -172,7 +172,7 @@ parse_header_field(Data) ->
     [Name, Value] ->
       {Name, string:trim(Value, both, " \t")};
     _ ->
-      error({invalid_header_field, Data})
+      throw({error, invalid_header_field})
   end.
 
 -spec parse_chunk_header(binary()) -> Length :: non_neg_integer().
@@ -187,5 +187,5 @@ parse_chunk_header(Data) ->
     erlang:binary_to_integer(LengthData, 16)
   catch
     error:badarg ->
-      error({invalid_chunk_length, LengthData})
+      throw({error, invalid_chunk_length})
   end.

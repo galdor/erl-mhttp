@@ -111,11 +111,11 @@ content_length_test_() ->
   ContentLength = fun mhttp_header:content_length/1,
   [?_assertEqual({ok, 42},
                  ContentLength([{<<"Content-Length">>, <<"42">>}])),
-   ?_assertEqual(error,
+   ?_assertEqual({error, not_found},
                  ContentLength([])),
-   ?_assertError({invalid_content_length, <<"foo">>},
+   ?_assertEqual({error, invalid_content_length},
                  ContentLength([{<<"Content-Length">>, <<"foo">>}])),
-   ?_assertError(multiple_content_length_fields,
+   ?_assertEqual({error, multiple_content_length_fields},
                  ContentLength([{<<"Content-Length">>, <<"42">>},
                                 {<<"Content-Length">>, <<"43">>}]))].
 

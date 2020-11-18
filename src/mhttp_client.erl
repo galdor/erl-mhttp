@@ -219,7 +219,9 @@ read_response(State = #{parser := Parser}) ->
     {ok, Response, Parser2} ->
       {State#{parser => Parser2}, Response};
     {more, Parser2} ->
-      read_response(State#{parser => Parser2})
+      read_response(State#{parser => Parser2});
+    {error, Reason} ->
+      throw({error, {invalid_data, Reason}})
   end.
 
 -spec set_socket_active(state(), boolean() | pos_integer()) -> ok.
