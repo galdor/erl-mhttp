@@ -18,7 +18,7 @@
 
 -behaviour(gen_server).
 
--export([process_name/1, start_link/1, start_link/2, stop/1,
+-export([process_name/1, start_link/2, stop/1,
          set_router/2, find_route/3]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
@@ -44,11 +44,6 @@
 process_name(Id) ->
   Name = <<"mhttp_server_", (atom_to_binary(Id))/binary>>,
   binary_to_atom(Name).
-
--spec start_link(options()) -> Result when
-    Result :: {ok, pid()} | ignore | {error, term()}.
-start_link(Options) ->
-  gen_server:start_link(?MODULE, [Options], []).
 
 -spec start_link(name(), options()) -> Result when
     Result :: {ok, pid()} | ignore | {error, term()}.
