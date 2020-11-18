@@ -66,13 +66,18 @@ send_request(Ref, Request, Options) ->
 init([Id, Options]) ->
   logger:update_process_metadata(#{domain => [mhttp, pool, Id]}),
   process_flag(trap_exit, true),
-  ClientsByKey = ets:new(mhttp_pool_clients_by_key, [bag]),
-  ClientsByPid = ets:new(mhttp_pool_clients_by_pid, [set]),
+  ClientsByKey = ets:new(ets_table_name(<<"clients_by_key">>, Id), [bag]),
+  ClientsByPid = ets:new(ets_table_name(<<"clients_by_pid">>, Id), [set]),
   State = #{id => Id,
             options => Options,
             clients_by_key => ClientsByKey,
             clients_by_pid => ClientsByPid},
   {ok, State}.
+
+-spec ets_table_name(Table :: binary(), mhttp:pool_id()) -> atom().
+ets_table_name(Table, Id) ->
+  Bin = <<"mhttp_pool_", (atom_to_binary(Id))/binary, "__", Table/binary>>,
+  binary_to_atom(Bin).
 
 -spec terminate(et_gen_server:terminate_reason(), state()) -> ok.
 terminate(_Reason, _State) ->
