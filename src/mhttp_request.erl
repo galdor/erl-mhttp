@@ -28,11 +28,11 @@ method(#{method := Method}) ->
 target_uri(#{target := Target}) when is_map(Target) ->
   Target;
 target_uri(#{target := Target}) ->
-  try
-    uri:parse(Target)
-  catch
-    error:Reason ->
-      error({invalid_target, Target, Reason})
+  case uri:parse(Target) of
+    {ok, URI} ->
+      URI;
+    {error, Reason} ->
+      error({invalid_target_uri, Reason})
   end.
 
 -spec target_string(mhttp:request()) -> binary().

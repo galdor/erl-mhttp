@@ -69,17 +69,18 @@ maybe_add_content_length(Response) ->
                                         integer_to_binary(Length)),
   Response#{header => Header2}.
 
--spec is_redirection(mhttp:response()) -> {true, uri:uri()} | false.
+-spec is_redirection(mhttp:response()) ->
+        {true, uri:uri()} | false | {error, term()}.
 is_redirection(Response = #{status := S}) when S =:= 301; S =:= 302; S =:= 303;
                                                S =:= 307; S =:= 308 ->
   Header = header(Response),
   case mhttp_header:find(Header, <<"Location">>) of
     {ok, Value} ->
-      try
-        {true, uri:parse(Value)}
-      catch
-        error:Reason ->
-          error({invalid_location_header_field, Value, Reason})
+      case uri:parse(Value) of
+        {ok, URI} ->
+          {true, URI};
+        {error, Reason} ->
+          {error, {invalid_location_header_field, Reason}}
       end;
     error ->
       false

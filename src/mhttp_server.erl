@@ -64,7 +64,8 @@ set_router(Ref, Router) ->
   gen_server:call(Ref, {set_router, Router}, infinity).
 
 -spec find_route(ref(), mhttp:request(), mhttp:handler_context()) ->
-        {mhttp_router:router(), mhttp:route(), mhttp:handler_context()}.
+        {ok, {mhttp_router:router(), mhttp:route(), mhttp:handler_context()}} |
+        {error, term()}.
 find_route(Ref, Request, Context) ->
   gen_server:call(Ref, {find_route, Request, Context}, infinity).
 
@@ -97,8 +98,12 @@ handle_call({set_router, Router}, _From, State = #{options := Options}) ->
 
 handle_call({find_route, Request, Context}, _From,
             State = #{router := Router}) ->
-  {Route, Context2} = mhttp_router:find_route(Router, Request, Context),
-  {reply, {Router, Route, Context2}, State};
+  case mhttp_router:find_route(Router, Request, Context) of
+    {ok, {Route, Context2}} ->
+      {reply, {ok, {Router, Route, Context2}}, State};
+    {error, Reason} ->
+      {reply, {error, Reason}, State}
+  end;
 handle_call({find_route, _Request, Context}, _From,
             State = #{options := Options}) ->
   ServerMiddlewares = maps:get(middlewares, Options, []),
@@ -107,7 +112,7 @@ handle_call({find_route, _Request, Context}, _From,
   Handler = maps:get(unavailable_service_handler, Options,
                      fun mhttp_handlers:unavailable_service_handler/2),
   Route = {unavailable_service, Handler},
-  {reply, {Router, Route, Context}, State};
+  {reply, {ok, {Router, Route, Context}}, State};
 
 handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),

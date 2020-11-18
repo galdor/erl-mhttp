@@ -192,7 +192,9 @@ do_send_request(State, Request, Options, NbRedirectionsLeft) ->
               do_send_request(State, NextRequest, Options,
                               NbRedirectionsLeft-1);
             false ->
-              {State, Response}
+              {State, Response};
+            {error, Reason} ->
+              throw({error, Reason})
           end;
         false ->
           {State, Response}

@@ -130,19 +130,22 @@ find_and_call_route(#{options := Options}, Request) ->
   Context = #{client_address => maps:get(address, Options),
               client_port => maps:get(port, Options),
               start_time => Now},
-  {Router, {_, Handler}, Context2} =
-    mhttp_server:find_route(ServerPid, Request, Context),
-  Middlewares = maps:get(middlewares, Router, []),
-  try
-    Response = call_route(Request, Context2, Handler, Middlewares),
-    {Response, Context2}
-  catch
-    error:Reason:Trace ->
-      ?LOG_ERROR("request handling error ~p ~p", [Reason, Trace]),
-      ErrHandler = maps:get(error_handler, Options),
-      ErrHandler(Request, #{}, Reason, Trace);
-    throw:{response, ThrownResponse} ->
-      {ThrownResponse, Context2}
+  case mhttp_server:find_route(ServerPid, Request, Context) of
+    {ok, {Router, {_, Handler}, Context2}} ->
+      Middlewares = maps:get(middlewares, Router, []),
+      try
+        Response = call_route(Request, Context2, Handler, Middlewares),
+        {Response, Context2}
+      catch
+        error:Reason:Trace ->
+          ?LOG_ERROR("request handling error ~p ~p", [Reason, Trace]),
+          ErrHandler = maps:get(error_handler, Options),
+          ErrHandler(Request, #{}, Reason, Trace);
+        throw:{response, ThrownResponse} ->
+          {ThrownResponse, Context2}
+      end;
+    {error, Reason} ->
+      throw({error, Reason})
   end.
 
 -spec call_route(mhttp:request(), mhttp:handler_context(), mhttp:handler(),

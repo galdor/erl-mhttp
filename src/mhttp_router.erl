@@ -27,24 +27,29 @@ default_route() ->
   {default, fun mhttp_handlers:not_found_handler/2}.
 
 -spec find_route(router(), mhttp:request(), mhttp:handler_context()) ->
-        {mhttp:route(), mhttp:handler_context()}.
+        {ok, {mhttp:route(), mhttp:handler_context()}} | {error, term()}.
 find_route(Router = #{routes := Routes}, Request, Context) ->
-  case find_route_(Routes, Request) of
-    {ok, Route, PathVariables} ->
-      {Route, Context#{path_variables => PathVariables}};
-    error ->
+  case do_find_route(Routes, Request) of
+    {ok, {Route, PathVariables}} ->
+      {ok, {Route, Context#{path_variables => PathVariables}}};
+    {error, not_found} ->
       Route = maps:get(default_route, Router, default_route()),
-      {Route, Context}
+      {ok, {Route, Context}};
+    {error, Reason} ->
+      {error, Reason}
   end.
 
--spec find_route_([mhttp:route()], mhttp:request()) ->
-        {ok, mhttp:route(), mhttp_patterns:path_variables()} | error.
-find_route_([], _Request) ->
-  error;
-find_route_([Route = {Pattern, _} | Routes], Request) ->
+-spec do_find_route([mhttp:route()], mhttp:request()) ->
+        {ok, {mhttp:route(), mhttp_patterns:path_variables()}} |
+        {error, not_found | term()}.
+do_find_route([], _Request) ->
+  {error, not_found};
+do_find_route([Route = {Pattern, _} | Routes], Request) ->
   case mhttp_patterns:match(Pattern, Request) of
     {true, PathVariables} ->
-      {ok, Route, PathVariables};
+      {ok, {Route, PathVariables}};
     false ->
-      find_route_(Routes, Request)
+      do_find_route(Routes, Request);
+    {error, Reason} ->
+      {error, Reason}
   end.

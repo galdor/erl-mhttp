@@ -142,7 +142,12 @@ parse_method(Data) ->
 
 -spec parse_target(binary()) -> mhttp:target().
 parse_target(Data) ->
-  uri:parse(Data).
+  case uri:parse(Data) of
+    {ok, URI} ->
+      URI;
+    {error, Reason} ->
+      throw({error, {invalid_target, Reason}})
+  end.
 
 -spec parse_version(binary()) -> mhttp:version().
 parse_version(<<"HTTP/1.0">>) ->

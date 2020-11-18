@@ -33,7 +33,7 @@
 -type path_variable_value() :: binary().
 -type path_variables() :: #{path_variable_name() => path_variable_value()}.
 
--type match_result() :: {true, path_variables()} | false.
+-type match_result() :: {true, path_variables()} | false | {error, term()}.
 
 -spec match(pattern(), mhttp:request()) -> match_result().
 match(PathPattern, Request = #{method := Method}) when
@@ -48,7 +48,12 @@ match({_PathPattern, Method, _Filters}, #{method := RequestMethod}) when
     Method =/= RequestMethod ->
   false;
 match(Pattern, Request = #{target := Target}) when is_binary(Target) ->
-  match(Pattern, Request#{target => uri:parse(Target)});
+  case uri:parse(Target) of
+    {ok, URI} ->
+      match(Pattern, Request#{target => URI});
+    {error, Reason} ->
+      {error, {invalid_target, Reason}}
+  end;
 match({PathPattern, _Method, Filters}, Request = #{target := Target}) ->
   case match_path_pattern(PathPattern, mhttp_uri:path(Target)) of
     {true, Variables} ->
