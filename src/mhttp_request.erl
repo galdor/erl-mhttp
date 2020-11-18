@@ -16,6 +16,7 @@
 
 -export([method/1, target_uri/1, target_string/1, version/1, header/1, body/1,
          trailer/1,
+         canonicalize_target/1,
          prepend_header/2,
          ensure_host/4, maybe_add_content_length/1,
          redirect/3, redirection_uri/2]).
@@ -56,6 +57,22 @@ body(Request) ->
 -spec trailer(mhttp:request()) -> mhttp:header().
 trailer(Request) ->
   maps:get(trailer, Request, mhttp_header:new()).
+
+-spec canonicalize_target(mhttp:request()) ->
+        {ok, mhttp:request()} | {error, term()}.
+canonicalize_target(Request = #{target := Target}) when is_map(Target) ->
+  {ok, Request};
+canonicalize_target(Request = #{target := Target}) when is_binary(Target) ->
+  case uri:parse(Target) of
+    {ok, URI = #{scheme := _, host := _}} ->
+      {ok, Request#{target => URI}};
+    {ok, #{scheme := _}} ->
+      {error, {invalid_target, missing_scheme}};
+    {ok, #{host := _}} ->
+      {error, {invalid_target, missing_host}};
+    {error, Reason} ->
+      {error, {invalid_target, Reason}}
+  end.
 
 -spec prepend_header(mhttp:request(), mhttp:header()) -> mhttp:request().
 prepend_header(Request, Header) ->

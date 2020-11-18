@@ -85,17 +85,22 @@ terminate(_Reason, _State) ->
 -spec handle_call(term(), {pid(), et_gen_server:request_id()}, state()) ->
         et_gen_server:handle_call_ret(state()).
 
-handle_call({send_request, Request, Options}, _From, State) ->
-  MaxNbRedirections = maps:get(max_nb_redirections, Options, 5),
-  try
-    {State, Response} = do_send_request(State, Request, Options,
-                                        MaxNbRedirections),
-    {reply, {ok, Response}, State}
-  catch
-    throw:{error, Reason} ->
-      {reply, {error, Reason}, State};
-    exit:{Reason, _MFA} ->
-      {reply, {error, {client_error, Reason}}, State}
+handle_call({send_request, Request0, Options}, _From, State) ->
+  case mhttp_request:canonicalize_target(Request0) of
+    {ok, Request} ->
+      MaxNbRedirections = maps:get(max_nb_redirections, Options, 5),
+      try
+        {State, Response} = do_send_request(State, Request, Options,
+                                            MaxNbRedirections),
+        {reply, {ok, Response}, State}
+      catch
+        throw:{error, Reason} ->
+          {reply, {error, Reason}, State};
+        exit:{Reason, _MFA} ->
+          {reply, {error, {client_error, Reason}}, State}
+      end;
+    {error, Reason} ->
+      {reply, {error, Reason}, State}
   end;
 
 handle_call(Msg, From, State) ->
