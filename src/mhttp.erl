@@ -24,6 +24,7 @@
               client_key/0,
               request/0, request_options/0,
               response/0,
+              msg_internal/0,
               method/0, target/0, version/0, status/0,
               header_name/0, header_value/0, header_field/0,
               header/0, body/0,

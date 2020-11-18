@@ -15,6 +15,7 @@
 -module(mhttp_response).
 
 -export([version/1, status/1, reason/1, header/1, body/1, trailer/1,
+         internal/1, with_internal/2,
          ensure_reason/1, ensure_date/1, maybe_add_content_length/1,
          is_redirection/1]).
 
@@ -41,6 +42,14 @@ body(Response) ->
 -spec trailer(mhttp:response()) -> mhttp:header().
 trailer(Response) ->
   maps:get(trailer, Response, mhttp_header:new()).
+
+-spec internal(mhttp:response()) -> mhttp:msg_internal().
+internal(Response) ->
+  maps:get(internal, Response, #{}).
+
+-spec with_internal(mhttp:response(), mhttp:msg_internal()) -> mhttp:response().
+with_internal(Response, NewInternal) ->
+  Response#{internal => maps:merge(internal(Response), NewInternal)}.
 
 -spec ensure_reason(mhttp:response()) -> mhttp:response().
 ensure_reason(Response = #{reason := _}) ->

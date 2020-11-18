@@ -243,4 +243,6 @@ schedule_idle_timeout(State = #{options := Options}) ->
                   mhttp:handler_context()) -> ok.
 log_request(Request, Response, Context) ->
   StartTime = maps:get(start_time, Context),
-  mhttp_log:log_request(Request, Response, StartTime).
+  Server = undefined,
+  Address = maps:get(client_address, Context),
+  mhttp_log:log_incoming_request(Request, Response, StartTime, Server, Address).

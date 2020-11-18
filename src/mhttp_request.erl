@@ -15,7 +15,7 @@
 -module(mhttp_request).
 
 -export([method/1, target_uri/1, target_string/1, version/1, header/1, body/1,
-         trailer/1,
+         trailer/1, internal/1, with_internal/2,
          canonicalize_target/1,
          prepend_header/2,
          ensure_host/4, maybe_add_content_length/1,
@@ -57,6 +57,14 @@ body(Request) ->
 -spec trailer(mhttp:request()) -> mhttp:header().
 trailer(Request) ->
   maps:get(trailer, Request, mhttp_header:new()).
+
+-spec internal(mhttp:request()) -> mhttp:msg_internal().
+internal(Request) ->
+  maps:get(internal, Request, #{}).
+
+-spec with_internal(mhttp:request(), mhttp:msg_internal()) -> mhttp:request().
+with_internal(Request, NewInternal) ->
+  Request#{internal => maps:merge(internal(Request), NewInternal)}.
 
 -spec canonicalize_target(mhttp:request()) ->
         {ok, mhttp:request()} | {error, term()}.

@@ -168,7 +168,7 @@ do_send_request(State, Request0, _RequestOptions) ->
   send(State, mhttp_proto:encode_request(Request)),
   set_socket_active(State, false),
   {State2, Response} = read_response(State),
-  mhttp_log:log_request(Request, Response, StartTime),
+  mhttp_log:log_outgoing_request(Request, Response, StartTime, undefined),
   set_socket_active(State2, true),
   {State2, Response}.
 

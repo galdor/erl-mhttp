@@ -14,16 +14,42 @@
 
 -module(mhttp_log).
 
--export([log_request/3]).
+-export([log_incoming_request/5, log_outgoing_request/4]).
 
--spec log_request(mhttp:request(), mhttp:response(),
-                  StartTime :: integer()) -> ok.
-log_request(Request, Response, StartTime) ->
+-spec log_incoming_request(mhttp:request(), mhttp:response(), StartTime,
+                           Server, inet:ip_address()) -> ok when
+    StartTime :: integer(),
+    Server :: mhttp:server_id() | undefined.
+log_incoming_request(Request, Response, StartTime, Server, Address) ->
+  Data = #{address => inet:ntoa(Address)},
+  Data2 = case Server of
+            undefined -> Data;
+            _ -> Data#{server => Server}
+          end,
+  log_request(Request, Response, StartTime, [mhttp, request, incoming], Data2).
+
+-spec log_outgoing_request(mhttp:request(), mhttp:response(), StartTime,
+                           Pool) -> ok when
+    StartTime :: integer(),
+    Pool :: mhttp:pool_id() | undefined.
+log_outgoing_request(Request, Response, StartTime, Pool) ->
+  Data = case Pool of
+           undefined -> #{};
+           _ -> #{pool => Pool}
+         end,
+  log_request(Request, Response, StartTime, [mhttp, request, outgoing], Data).
+
+-spec log_request(mhttp:request(), mhttp:response(), StartTime, Domain,
+                  ExtraData) -> ok when
+    StartTime :: integer(),
+    Domain :: [atom()],
+    ExtraData :: #{atom() := term()}.
+log_request(Request, Response, StartTime, Domain, ExtraData) ->
   Now = erlang:system_time(microsecond),
   MethodString = mhttp_proto:encode_method(mhttp_request:method(Request)),
   Target = mhttp_request:target_string(Request),
   Status = mhttp_response:status(Response),
-  Internal = maps:get(internal, Response, #{}),
+  Internal = mhttp_response:internal(Response),
   BodySize = case maps:find(original_body_size, Internal) of
                {ok, Size} ->
                  Size;
@@ -31,14 +57,14 @@ log_request(Request, Response, StartTime) ->
                  iolist_size(mhttp_response:body(Response))
              end,
   ProcessingTime = Now - StartTime,
-  Data = #{domain => [mhttp, request],
+  Data = #{domain => Domain,
            status => Status,
            processing_time => ProcessingTime},
   logger:info("~s ~s ~b ~ts ~ts",
               [MethodString, Target, Status,
                format_data_size(BodySize),
                format_processing_time(ProcessingTime)],
-              Data),
+              maps:merge(Data, ExtraData)),
   ok.
 
 -spec format_processing_time(Microseconds :: non_neg_integer()) -> binary().
