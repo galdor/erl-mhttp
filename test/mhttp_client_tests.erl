@@ -20,8 +20,7 @@ client_test_() ->
   {setup,
    fun () ->
        %% Client pool
-       PoolName = mhttp_pool:process_name(test),
-       mhttp_pool:start_link({local, PoolName}, #{}),
+       {ok, _} = mhttp_pool:start_link(test, #{}),
        %% Server
        ServerRoot = "/tmp/mhttp-tests/httpd/server",
        ensure_directory(ServerRoot),
@@ -38,7 +37,7 @@ client_test_() ->
    end,
    fun (Pid) ->
        inets:stop(httpd, Pid),
-       mhttp_pool:stop(mhttp_pool:process_name(test))
+       mhttp_pool:stop(test)
    end,
    [fun simple_request/0,
     fun redirections/0]}.

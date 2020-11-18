@@ -26,7 +26,7 @@ log_incoming_request(Request, Response, StartTime, Server, Address) ->
             undefined -> Data;
             _ -> Data#{server => Server}
           end,
-  log_request(Request, Response, StartTime, [mhttp, request, incoming], Data2).
+  log_request(Request, Response, StartTime, [mhttp, request, in], Data2).
 
 -spec log_outgoing_request(mhttp:request(), mhttp:response(), StartTime,
                            Pool) -> ok when
@@ -37,7 +37,7 @@ log_outgoing_request(Request, Response, StartTime, Pool) ->
            undefined -> #{};
            _ -> #{pool => Pool}
          end,
-  log_request(Request, Response, StartTime, [mhttp, request, outgoing], Data).
+  log_request(Request, Response, StartTime, [mhttp, request, out], Data).
 
 -spec log_request(mhttp:request(), mhttp:response(), StartTime, Domain,
                   ExtraData) -> ok when

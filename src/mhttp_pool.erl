@@ -30,7 +30,8 @@
 -type options() :: #{client_options => mhttp_client:options(),
                      max_connections_per_key => pos_integer()}.
 
--type state() :: #{options := options(),
+-type state() :: #{id := mhttp:pool_id(),
+                   options := options(),
                    clients_by_key := ets:tid(),
                    clients_by_pid := ets:tid()}.
 
@@ -39,14 +40,16 @@ process_name(Id) ->
   Name = <<"mhttp_pool_", (atom_to_binary(Id))/binary>>,
   binary_to_atom(Name).
 
--spec start_link(name(), options()) -> Result when
+-spec start_link(mhttp:pool_id(), options()) -> Result when
     Result :: {ok, pid()} | ignore | {error, term()}.
-start_link(Name, Options) ->
-  gen_server:start_link(Name, ?MODULE, [Options], []).
+start_link(Id, Options) ->
+  Name = process_name(Id),
+  gen_server:start_link({local, Name}, ?MODULE, [Id, Options], []).
 
--spec stop(ref()) -> ok.
-stop(Ref) ->
-  gen_server:stop(Ref).
+-spec stop(mhttp:pool_id()) -> ok.
+stop(Id) ->
+  Name = process_name(Id),
+  gen_server:stop(Name).
 
 -spec send_request(ref(), mhttp:request()) ->
         {ok, mhttp:response()} | {error, term()}.
@@ -60,12 +63,13 @@ send_request(Ref, Request, Options) ->
 
 -spec init(list()) -> et_gen_server:init_ret(state()).
 
-init([Options]) ->
-  logger:update_process_metadata(#{domain => [mhttp, pool]}),
+init([Id, Options]) ->
+  logger:update_process_metadata(#{domain => [mhttp, pool, Id]}),
   process_flag(trap_exit, true),
   ClientsByKey = ets:new(mhttp_pool_clients_by_key, [bag]),
   ClientsByPid = ets:new(mhttp_pool_clients_by_pid, [set]),
-  State = #{options => Options,
+  State = #{id => Id,
+            options => Options,
             clients_by_key => ClientsByKey,
             clients_by_pid => ClientsByPid},
   {ok, State}.
@@ -136,10 +140,11 @@ get_or_create_client(State = #{options := Options,
   end.
 
 -spec create_client(state(), mhttp:client_key()) -> mhttp_client:ref().
-create_client(#{options := Options}, {Host, Port, Transport}) ->
+create_client(#{id := Id, options := Options}, {Host, Port, Transport}) ->
   ClientOptions0 = maps:get(client_options, Options, #{}),
   ClientOptions = ClientOptions0#{host => Host, port => Port,
-                                  transport => Transport},
+                                  transport => Transport,
+                                  pool => Id},
   case mhttp_client:start_link(ClientOptions) of
     {ok, Pid} ->
       Pid;

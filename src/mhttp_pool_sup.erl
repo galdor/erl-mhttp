@@ -48,7 +48,6 @@ pool_child_specs() ->
 
 -spec pool_child_spec(mhttp:pool_id(), mhttp_server:options()) ->
         supervisor:child_spec().
-pool_child_spec(ChildId, Options) ->
-  Name = mhttp_pool:process_name(ChildId),
-  #{id => ChildId,
-    start => {mhttp_pool, start_link, [{local, Name}, Options]}}.
+pool_child_spec(Id, Options) ->
+  #{id => Id,
+    start => {mhttp_pool, start_link, [Id, Options]}}.

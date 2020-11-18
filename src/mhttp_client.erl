@@ -35,7 +35,8 @@
                      read_timeout => timeout(),
                      connect_options => connect_options(),
                      header => mhttp:header(),
-                     compression => boolean()}.
+                     compression => boolean(),
+                     pool => mhttp:pool_id()}.
 
 -type state() :: #{options := options(),
                    transport := mhttp:transport(),
@@ -162,13 +163,14 @@ connect(Options) ->
 
 -spec do_send_request(state(), mhttp:request(), mhttp:request_options()) ->
         {state(), mhttp:response()}.
-do_send_request(State, Request0, _RequestOptions) ->
+do_send_request(State = #{options := Options}, Request0, _RequestOptions) ->
   StartTime = erlang:system_time(microsecond),
   Request = finalize_request(State, Request0),
   send(State, mhttp_proto:encode_request(Request)),
   set_socket_active(State, false),
   {State2, Response} = read_response(State),
-  mhttp_log:log_outgoing_request(Request, Response, StartTime, undefined),
+  Pool = maps:get(pool, Options, undefined),
+  mhttp_log:log_outgoing_request(Request, Response, StartTime, Pool),
   set_socket_active(State2, true),
   {State2, Response}.
 
