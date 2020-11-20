@@ -14,7 +14,7 @@
 
 {application, mhttp,
  [{description, "HTTP implementation."},
-  {vsn, "0.1.0"},
+  {vsn, "git"},
   {registered,
    [mhttp_pool_sup,
     mhttp_server_sup,
