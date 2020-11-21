@@ -64,6 +64,7 @@ The following client options are available:
 - `header`: a set of default header fields used for all requests sent.
 - `compression`: accept compressed responses and automatically decompress
   them. The only compression scheme currently supported is `gzip`.
+- `log_requests`: toggle request logging (default: `true`.
 
 For TLS connections, the client uses both the list of TCP options and the list
 of TLS options.

@@ -28,6 +28,9 @@
 
 -type connect_options() :: [gen_tcp:connect_option() | ssl:tls_client_option()].
 
+%% XXX If the client is part of a pool, we need to keep track of the pool id
+%% for request logging. Using options to store the pool id is a hack, we need
+%% a better way.
 -type options() :: #{host => uri:host(),
                      port => uri:port_number(),
                      transport => mhttp:transport(),
@@ -36,6 +39,7 @@
                      connect_options => connect_options(),
                      header => mhttp:header(),
                      compression => boolean(),
+                     log_requests => boolean(),
                      pool => mhttp:pool_id()}.
 
 -type state() :: #{options := options(),
@@ -163,14 +167,13 @@ connect(Options) ->
 
 -spec do_send_request(state(), mhttp:request(), mhttp:request_options()) ->
         {state(), mhttp:response()}.
-do_send_request(State = #{options := Options}, Request0, _RequestOptions) ->
+do_send_request(State, Request0, _RequestOptions) ->
   StartTime = erlang:system_time(microsecond),
   Request = finalize_request(State, Request0),
   send(State, mhttp_proto:encode_request(Request)),
   set_socket_active(State, false),
   {State2, Response} = read_response(State),
-  Pool = maps:get(pool, Options, undefined),
-  mhttp_log:log_outgoing_request(Request, Response, StartTime, Pool),
+  log_request(Request, Response, StartTime, State),
   set_socket_active(State2, true),
   {State2, Response}.
 
@@ -212,6 +215,18 @@ compression_finalization_fun(Options) ->
                     Header
                 end,
       Request#{header => Header2}
+  end.
+
+-spec log_request(mhttp:request(), mhttp:response(), StartTime :: integer(),
+                  state()) -> ok.
+log_request(Request, Response, StartTime, #{options := Options}) ->
+  case maps:get(log_requests, Options, true) of
+    true ->
+      Pool = maps:get(pool, Options, undefined),
+      mhttp_log:log_outgoing_request(Request, Response, StartTime, Pool),
+      ok;
+    false ->
+      ok
   end.
 
 -spec read_response(state()) -> {state(), mhttp:response()}.

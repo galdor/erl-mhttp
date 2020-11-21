@@ -23,11 +23,14 @@
 
 -export_type([options/0]).
 
+%% XXX We need to keep track of the server id for request logging. Using
+%% options to store the server id is a hack, we need a better way.
 -type options() :: #{server_pid := pid(),
                      error_handler := mhttp:error_handler(),
                      idle_timeout := pos_integer(),
                      address => inet:ip_address(),
                      port => inet:port_number(),
+                     log_requests => boolean(),
                      server => mhttp:server_id()}.
 
 -type state() :: #{options := options(),
@@ -243,7 +246,14 @@ schedule_idle_timeout(State = #{options := Options}) ->
 -spec log_request(mhttp:request(), mhttp:response(), mhttp:handler_context(),
                   state()) -> ok.
 log_request(Request, Response, Context, #{options := Options}) ->
-  StartTime = maps:get(start_time, Context),
-  Server = maps:get(server, Options, undefined),
-  Address = maps:get(client_address, Context),
-  mhttp_log:log_incoming_request(Request, Response, StartTime, Server, Address).
+  case maps:get(log_requests, Options, true) of
+    true ->
+      StartTime = maps:get(start_time, Context),
+      Server = maps:get(server, Options, undefined),
+      Address = maps:get(client_address, Context),
+      mhttp_log:log_incoming_request(Request, Response, StartTime,
+                                     Server, Address),
+      ok;
+    false ->
+      ok
+  end.
