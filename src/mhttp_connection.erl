@@ -167,7 +167,7 @@ call_route(Request, Context, Handler, Middlewares) ->
   {Response, HandledContext} =
     call_handler(Handler, PreprocessedRequest, PreprocessedContext),
   %% Postprocessing middlewares
-  PostMiddlewares = mhttp_middleware:preprocessing_middlewares(Middlewares),
+  PostMiddlewares = mhttp_middleware:postprocessing_middlewares(Middlewares),
   {PostprocessedResponse, PostprocessedContext} =
     lists:foldl(fun (M, {Res, Ctx}) ->
                     call_postprocessing_middleware(M, PreprocessedRequest,
@@ -211,15 +211,15 @@ call_preprocessing_middleware({Module, Args}, Request, Context) ->
       {Request2, Context}
   end.
 
--spec call_postprocessing_middleware(mhttp:middleware(), mhttp:request(),
-                                     mhttp:handler_context(),
-                                     mhttp:response()) ->
+-spec call_postprocessing_middleware(mhttp:middleware(),
+                                     mhttp:request(), mhttp:response(),
+                                     mhttp:handler_context()) ->
         {mhttp:response(), mhttp:handler_context()}.
 call_postprocessing_middleware({postprocess, Module, Args},
-                               Request, Context, Response) ->
-  call_postprocessing_middleware({Module, Args}, Request, Context, Response);
-call_postprocessing_middleware({Module, Args}, Request, Context, Response) ->
-  case Module:postprocess(Request, Context, Response, Args) of
+                               Request, Response, Context) ->
+  call_postprocessing_middleware({Module, Args}, Request, Response, Context);
+call_postprocessing_middleware({Module, Args}, Request, Response, Context) ->
+  case Module:postprocess(Request, Response, Context, Args) of
     {Response2, Context2} ->
       {Response2, Context2};
     Response2 ->
