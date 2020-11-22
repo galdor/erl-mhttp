@@ -112,28 +112,28 @@ handle_info(Msg, State) ->
 
 -spec process_request(mhttp:request(), state()) -> state().
 process_request(Request, State = #{options := Options}) ->
-  {Response0, Context} =
+  Now = erlang:system_time(microsecond),
+  Context = #{client_address => maps:get(address, Options),
+              client_port => maps:get(port, Options),
+              start_time => Now},
+  {Response0, Context2} =
     try
-      find_and_call_route(State, Request)
+      find_and_call_route(State, Request, Context)
     catch
       error:Reason:Trace ->
         ?LOG_ERROR("request processing error: ~p~n~p", [Reason, Trace]),
         ErrHandler = maps:get(error_handler, Options),
-        ErrHandler(Request, #{}, Reason, Trace)
+        call_error_handler(ErrHandler, Request, Context, Reason, Trace)
     end,
   Response = finalize_response(State, Response0),
-  log_request(Request, Response, Context, State),
+  log_request(Request, Response, Context2, State),
   send_response(Response, State),
   State.
 
--spec find_and_call_route(state(), mhttp:request()) ->
+-spec find_and_call_route(state(), mhttp:request(), mhttp:handler_context()) ->
         {mhttp:response(), mhttp:handler_context()}.
-find_and_call_route(#{options := Options}, Request) ->
-  Now = erlang:system_time(microsecond),
+find_and_call_route(#{options := Options}, Request, Context) ->
   ServerPid = maps:get(server_pid, Options),
-  Context = #{client_address => maps:get(address, Options),
-              client_port => maps:get(port, Options),
-              start_time => Now},
   case mhttp_server:find_route(ServerPid, Request, Context) of
     {ok, {Router, {_, Handler}, Context2}} ->
       Middlewares = maps:get(middlewares, Router, []),
@@ -143,7 +143,7 @@ find_and_call_route(#{options := Options}, Request) ->
         error:Reason:Trace ->
           ?LOG_ERROR("request handling error: ~p~n~p", [Reason, Trace]),
           ErrHandler = maps:get(error_handler, Options),
-          ErrHandler(Request, #{}, Reason, Trace);
+          call_error_handler(ErrHandler, Request, Context, Reason, Trace);
         throw:{response, ThrownResponse, ThrownContext} ->
           {ThrownResponse, ThrownContext};
         throw:{response, ThrownResponse} ->
@@ -180,6 +180,18 @@ call_route(Request, Context, Handler, Middlewares) ->
         {mhttp:response(), mhttp:handler_context()}.
 call_handler(Handler, Request, Context) ->
   case Handler(Request, Context) of
+    {Response2, Context2} ->
+      {Response2, Context2};
+    Response2 ->
+      {Response2, Context}
+  end.
+
+-spec call_error_handler(mhttp:error_handler(), mhttp:request(),
+                         mhttp:handler_context(), Reason :: term(),
+                         [mhttp:stack_item()]) ->
+        {mhttp:response(), mhttp:handler_context()}.
+call_error_handler(Handler, Request, Context, Reason, Trace) ->
+  case Handler(Request, Context, Reason, Trace) of
     {Response2, Context2} ->
       {Response2, Context2};
     Response2 ->
