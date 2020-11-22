@@ -18,14 +18,14 @@
          error_handler/4]).
 
 -spec not_found_handler(mhttp:request(), mhttp:handler_context()) ->
-        mhttp:response().
+        mhttp:handler_ret().
 not_found_handler(_Request, _Context) ->
   #{status => 404,
     header => [{<<"Content-Type">>, <<"text/plain">>}],
     body => <<"Not found.\n">>}.
 
 -spec unavailable_service_handler(mhttp:request(), mhttp:handler_context()) ->
-        mhttp:response().
+        mhttp:handler_ret().
 unavailable_service_handler(_Request, _Context) ->
   #{status => 503,
     header => [{<<"Content-Type">>, <<"text/plain">>}],
@@ -33,7 +33,7 @@ unavailable_service_handler(_Request, _Context) ->
 
 -spec error_handler(mhttp:request(), mhttp:handler_context(),
                     Reason :: term(), Trace :: [mhttp:stack_item()]) ->
-        mhttp:response().
+        mhttp:handler_ret().
 error_handler(Request, Context, Reason, Trace) ->
   Body = [io_lib:format(<<"~s\n~p\n\n">>, [Title, Datum]) ||
            {Title, Datum} <- [{<<"REQUEST">>, Request},
