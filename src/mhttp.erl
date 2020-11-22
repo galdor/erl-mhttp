@@ -88,8 +88,8 @@
                     | {preprocess, module(), Args :: list()}
                     | {postprocess, module(), Args :: list()}.
 
--type handler_fun() :: fun((request(), handler_context()) -> handler_ret()}).
--type handler_ret() :: response() | {response(), handler_context()
+-type handler_fun() :: fun((request(), handler_context()) -> handler_ret()).
+-type handler_ret() :: response() | {response(), handler_context()}.
 -type handler() :: handler_fun().
 -type error_handler() :: fun((request(), handler_context(),
                               Reason :: term(), [stack_item()]) ->
