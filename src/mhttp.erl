@@ -30,7 +30,7 @@
               header/0, body/0,
               route_pattern/0, route/0,
               middleware/0,
-              handler_fun/0, handler/0, error_handler/0,
+              handler_fun/0, handler_ret/0, handler/0, error_handler/0,
               handler_context/0,
               stack_item/0]).
 
@@ -88,8 +88,8 @@
                     | {preprocess, module(), Args :: list()}
                     | {postprocess, module(), Args :: list()}.
 
--type handler_fun() :: fun((request(), handler_context()) ->
-                              response() | {response(), handler_context()}).
+-type handler_fun() :: fun((request(), handler_context()) -> handler_ret()}).
+-type handler_ret() :: response() | {response(), handler_context()
 -type handler() :: handler_fun().
 -type error_handler() :: fun((request(), handler_context(),
                               Reason :: term(), [stack_item()]) ->
