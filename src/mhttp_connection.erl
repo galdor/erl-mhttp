@@ -174,7 +174,7 @@ call_route(Request, Context, Handler, Middlewares) ->
                                                    Res, Ctx)
                 end, {Response, HandledContext},
                 PostMiddlewares),
-  {PostprocessedResponse, PostprocessedContext}.
+  {validate_route_response(PostprocessedResponse), PostprocessedContext}.
 
 -spec call_handler(mhttp:handler(), mhttp:request(), mhttp:handler_context()) ->
         {mhttp:response(), mhttp:handler_context()}.
@@ -225,6 +225,13 @@ call_postprocessing_middleware({Module, Args}, Request, Response, Context) ->
     Response2 ->
       {Response2, Context}
   end.
+
+-spec validate_route_response(mhttp:response()) -> mhttp:response().
+validate_route_response(#{body := Body}) when is_tuple(Body) ->
+  %% Payloads have to be serialized by one of the postprocessing middlewares.
+  error({invalid_response, unserialized_payload});
+validate_route_response(Response) ->
+  Response.
 
 -spec finalize_response(state(), mhttp:response()) -> mhttp:response().
 finalize_response(_State, Response) ->
