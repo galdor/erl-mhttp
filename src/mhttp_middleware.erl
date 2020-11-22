@@ -44,7 +44,7 @@ preprocessing_middlewares(Middlewares) ->
 
 -spec postprocessing_middlewares([mhttp:middleware()]) -> [mhttp:middleware()].
 postprocessing_middlewares(Middlewares) ->
-  lists:filter(fun ({preprocess, _}) -> false;
-                   ({postprocess, _}) -> true;
+  lists:filter(fun ({preprocess, _, _}) -> false;
+                   ({postprocess, _, _}) -> true;
                    ({_, _}) -> true
                end, Middlewares).
