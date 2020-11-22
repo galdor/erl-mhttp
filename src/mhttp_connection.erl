@@ -138,13 +138,14 @@ find_and_call_route(#{options := Options}, Request) ->
     {ok, {Router, {_, Handler}, Context2}} ->
       Middlewares = maps:get(middlewares, Router, []),
       try
-        Response = call_route(Request, Context2, Handler, Middlewares),
-        {Response, Context2}
+        call_route(Request, Context2, Handler, Middlewares)
       catch
         error:Reason:Trace ->
           ?LOG_ERROR("request handling error ~p ~p", [Reason, Trace]),
           ErrHandler = maps:get(error_handler, Options),
           ErrHandler(Request, #{}, Reason, Trace);
+        throw:{response, ThrownResponse, ThrownContext} ->
+          {ThrownResponse, ThrownContext};
         throw:{response, ThrownResponse} ->
           {ThrownResponse, Context2}
       end;
@@ -154,7 +155,7 @@ find_and_call_route(#{options := Options}, Request) ->
 
 -spec call_route(mhttp:request(), mhttp:handler_context(), mhttp:handler(),
                  [mhttp:middleware()]) ->
-        mhttp:response().
+        {mhttp:response(), mhttp:handler_context()}.
 call_route(Request, Context, Handler, Middlewares) ->
   %% Preprocessing middlewares
   PreMiddlewares = mhttp_middleware:preprocessing_middlewares(Middlewares),
@@ -167,13 +168,13 @@ call_route(Request, Context, Handler, Middlewares) ->
     call_handler(Handler, PreprocessedRequest, PreprocessedContext),
   %% Postprocessing middlewares
   PostMiddlewares = mhttp_middleware:preprocessing_middlewares(Middlewares),
-  {PostprocessedResponse, _PostprocessedContext} =
+  {PostprocessedResponse, PostprocessedContext} =
     lists:foldl(fun (M, {Res, Ctx}) ->
                     call_postprocessing_middleware(M, PreprocessedRequest,
                                                    Res, Ctx)
                 end, {Response, HandledContext},
                 PostMiddlewares),
-  PostprocessedResponse.
+  {PostprocessedResponse, PostprocessedContext}.
 
 -spec call_handler(mhttp:handler(), mhttp:request(), mhttp:handler_context()) ->
         {mhttp:response(), mhttp:handler_context()}.
