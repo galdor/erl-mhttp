@@ -135,7 +135,7 @@ process_request(Request, State = #{options := Options}) ->
 find_and_call_route(#{options := Options}, Request, Context) ->
   ServerPid = maps:get(server_pid, Options),
   case mhttp_server:find_route(ServerPid, Request, Context) of
-    {ok, {Router, Route = {_, Handler}, Context2}} ->
+    {ok, {_Router, Route, Context2}} ->
       try
         call_route(Request, Context2, Route)
       catch
