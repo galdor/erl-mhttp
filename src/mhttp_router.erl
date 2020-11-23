@@ -19,8 +19,7 @@
 -export_type([router/0]).
 
 -type router() :: #{routes := [mhttp:route()],
-                    default_route => mhttp:route(),
-                    middlewares => [mhttp:middleware()]}.
+                    default_route => mhttp:route()}.
 
 -spec default_route() -> mhttp:route().
 default_route() ->

@@ -27,9 +27,8 @@
               msg_internal/0,
               method/0, target/0, version/0, status/0,
               header_name/0, header_value/0, header_field/0,
-              header/0, body/0, payload/0,
+              header/0, body/0,
               route_pattern/0, route/0,
-              middleware/0,
               handler_fun/0, handler_ret/0, handler/0, error_handler/0,
               handler_context/0]).
 
@@ -76,17 +75,12 @@
 -type header_field() :: {header_name(), header_value()}.
 -type header() :: [header_field()].
 
--type body() :: iodata() | payload().
--type payload() :: {atom(), term()}.
+-type body() :: iodata().
 
 -type route_pattern() :: default
                        | unavailable_service
                        | mhttp_patterns:pattern().
 -type route() :: {route_pattern(), handler()}.
-
--type middleware() :: {module(), Args :: list()}
-                    | {preprocess, module(), Args :: list()}
-                    | {postprocess, module(), Args :: list()}.
 
 -type handler_fun() :: fun((request(), handler_context()) -> handler_ret()).
 -type handler_ret() :: response() | {response(), handler_context()}.
