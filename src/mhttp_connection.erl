@@ -188,7 +188,7 @@ call_handler(Handler, Request, Context) ->
 
 -spec call_error_handler(mhttp:error_handler(), mhttp:request(),
                          mhttp:handler_context(), Reason :: term(),
-                         [mhttp:stack_item()]) ->
+                         [et_erlang:stack_item()]) ->
         {mhttp:response(), mhttp:handler_context()}.
 call_error_handler(Handler, Request, Context, Reason, Trace) ->
   case Handler(Request, Context, Reason, Trace) of

@@ -31,8 +31,7 @@
               route_pattern/0, route/0,
               middleware/0,
               handler_fun/0, handler_ret/0, handler/0, error_handler/0,
-              handler_context/0,
-              stack_item/0]).
+              handler_context/0]).
 
 -type pool_id() :: atom().
 -type server_id() :: atom().
@@ -93,19 +92,13 @@
 -type handler_ret() :: response() | {response(), handler_context()}.
 -type handler() :: handler_fun().
 -type error_handler() :: fun((request(), handler_context(),
-                              Reason :: term(), [stack_item()]) ->
+                              Reason :: term(), [et_erlang:stack_item()]) ->
                                 response()).
 
 -type handler_context() :: #{client_address => inet:ip_address(),
                              client_port => inet:port_number(),
                              path_variables => mhttp_patterns:path_variables(),
                              start_time => integer()}.
-
-%% erlang:stack_item/0 is not exported.
--type stack_item() :: {module(),
-                       Function :: atom(),
-                       arity() | (Args :: [term()]),
-                       [{file, string()} | {line, non_neg_integer()}]}.
 
 -spec start_pool(pool_id(), mhttp_pool:options()) ->
         supervisor:startchild_ret().

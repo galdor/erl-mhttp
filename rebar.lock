@@ -1,6 +1,6 @@
 [{<<"et">>,
   {git,"https://github.com/galdor/erl-et.git",
-       {ref,"38ccbe694fe39eb7c284f6e850eca0d625b7e41a"}},
+       {ref,"c810b2e59a4145fe15d026397b17dcda8787e38f"}},
   0},
  {<<"uri">>,
   {git,"https://github.com/galdor/erl-uri.git",
