@@ -85,7 +85,7 @@ handle_info({tcp, _Socket, Data}, State = #{parser := Parser}) ->
   State2 = schedule_idle_timeout(State),
   case mhttp_parser:parse(Parser, Data) of
     {ok, Request, Parser2} ->
-      State3 = process_request(Request, State#{parser => Parser2}),
+      State3 = handle_request(Request, State#{parser => Parser2}),
       set_socket_active(State3, 1),
       {noreply, State3};
     {more, Parser2} ->
@@ -110,8 +110,8 @@ handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
   {noreply, State}.
 
--spec process_request(mhttp:request(), state()) -> state().
-process_request(Request, State = #{options := Options}) ->
+-spec handle_request(mhttp:request(), state()) -> state().
+handle_request(Request, State = #{options := Options}) ->
   Now = erlang:system_time(microsecond),
   Context = #{client_address => maps:get(address, Options),
               client_port => maps:get(port, Options),
