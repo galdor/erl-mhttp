@@ -25,7 +25,8 @@
                  | {path_pattern(), [mhttp_filters:filter()]}
                  | {path_pattern(), mhttp:method(), [mhttp_filters:filter()]}.
 
--type path_pattern() :: binary().
+-type path_pattern() :: binary()
+                      | {prefix, binary()}.
 -type segment_pattern() :: [binary() | '*' | {named, atom()}].
 -type segments() :: [binary()].
 
@@ -38,6 +39,8 @@
 -spec match(pattern(), mhttp:request()) -> match_result().
 match(PathPattern, Request = #{method := Method}) when
     is_binary(PathPattern) ->
+  match({PathPattern, Method, []}, Request);
+match(PathPattern = {prefix, _}, Request = #{method := Method}) ->
   match({PathPattern, Method, []}, Request);
 match({PathPattern, Filters}, Request = #{method := Method}) when
     is_list(Filters) ->
@@ -68,10 +71,15 @@ match({PathPattern, _Method, Filters}, Request = #{target := Target}) ->
   end.
 
 -spec match_path_pattern(path_pattern(), uri:path()) -> match_result().
-match_path_pattern(Pattern, Path) ->
+match_path_pattern(Pattern, Path) when is_binary(Pattern) ->
   SegmentPattern = split_path_pattern(Pattern),
   Segments = binary:split(Path, <<"/">>, [global, trim_all]),
-  match_segment_pattern(SegmentPattern, Segments).
+  match_segment_pattern(SegmentPattern, Segments);
+match_path_pattern({prefix, Prefix}, Path) ->
+  case string:prefix(Path, Prefix) of
+    nomatch -> false;
+    _ -> {true, #{}}
+  end.
 
 -spec split_path_pattern(path_pattern()) -> segment_pattern().
 split_path_pattern(Pattern) ->
