@@ -115,7 +115,7 @@ handle_request(Request, State = #{options := Options}) ->
   Now = erlang:system_time(microsecond),
   RequestId = case mhttp_request:request_id(Request) of
                 {ok, Id} -> Id;
-                error -> generate_request_id()
+                error -> ksuid:generate_string()
               end,
   Context = #{client_address => maps:get(address, Options),
               client_port => maps:get(port, Options),
@@ -228,7 +228,3 @@ log_request(Request, Response, Context, #{options := Options}) ->
     false ->
       ok
   end.
-
--spec generate_request_id() -> binary().
-generate_request_id() ->
-  uuid:format(uuid:generate_v4()).
