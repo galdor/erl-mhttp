@@ -76,16 +76,14 @@ match_path_pattern(Pattern, Path) ->
 -spec split_path_pattern(path_pattern()) -> segment_pattern().
 split_path_pattern(Pattern) ->
   Segments = binary:split(Pattern, <<"/">>, [global, trim_all]),
-  lists:map(fun (S) ->
-                case S of
-                  <<"*">> ->
-                    '*';
-                  <<":", Name/binary>> ->
-                    {named, binary_to_atom(Name)};
-                  _ ->
-                    S
-                end
-            end, Segments).
+  lists:map(fun
+              (<<"*">>) ->
+               '*';
+              (<<":", Name/binary>>) ->
+               {named, binary_to_atom(Name)};
+              (S) ->
+               S
+           end, Segments).
 
 -spec match_segment_pattern(segment_pattern(), segments()) -> match_result().
 match_segment_pattern(Pattern, Segments) ->
