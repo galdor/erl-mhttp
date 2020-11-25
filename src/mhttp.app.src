@@ -25,7 +25,8 @@
     stdlib,
     ssl,
     et,
-    uri]},
+    uri,
+    uuid]},
   {env, []},
   {modules, []},
 

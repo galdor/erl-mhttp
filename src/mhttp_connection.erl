@@ -113,9 +113,14 @@ handle_info(Msg, State) ->
 -spec handle_request(mhttp:request(), state()) -> state().
 handle_request(Request, State = #{options := Options}) ->
   Now = erlang:system_time(microsecond),
+  RequestId = case mhttp_request:request_id(Request) of
+                {ok, Id} -> Id;
+                error -> generate_request_id()
+              end,
   Context = #{client_address => maps:get(address, Options),
               client_port => maps:get(port, Options),
-              start_time => Now},
+              start_time => Now,
+              request_id => RequestId},
   {Response0, Context2} =
     try
       find_and_call_route(State, Request, Context)
@@ -217,12 +222,13 @@ schedule_idle_timeout(State = #{options := Options}) ->
 log_request(Request, Response, Context, #{options := Options}) ->
   case maps:get(log_requests, Options, true) of
     true ->
-      StartTime = maps:get(start_time, Context),
       Server = maps:get(server, Options, undefined),
-      Address = maps:get(client_address, Context),
-      mhttp_log:log_incoming_request(Request, Response, StartTime,
-                                     Server, Address),
+      mhttp_log:log_incoming_request(Request, Response, Context, Server),
       ok;
     false ->
       ok
   end.
+
+-spec generate_request_id() -> binary().
+generate_request_id() ->
+  uuid:format(uuid:generate_v4()).

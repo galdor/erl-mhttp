@@ -16,6 +16,7 @@
 
 -export([method/1, target_uri/1, target_string/1, version/1, header/1, body/1,
          trailer/1, internal/1, with_internal/2,
+         request_id/1,
          canonicalize_target/1,
          prepend_header/2,
          ensure_host/4, maybe_add_content_length/1,
@@ -65,6 +66,10 @@ internal(Request) ->
 -spec with_internal(mhttp:request(), mhttp:msg_internal()) -> mhttp:request().
 with_internal(Request, NewInternal) ->
   Request#{internal => maps:merge(internal(Request), NewInternal)}.
+
+-spec request_id(mhttp:request()) -> {ok, binary()} | error.
+request_id(Request) ->
+  mhttp_header:find(header(Request), <<"X-Request-Id">>).
 
 -spec canonicalize_target(mhttp:request()) ->
         {ok, mhttp:request()} | {error, term()}.

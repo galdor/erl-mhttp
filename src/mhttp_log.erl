@@ -14,14 +14,17 @@
 
 -module(mhttp_log).
 
--export([log_incoming_request/5, log_outgoing_request/4]).
+-export([log_incoming_request/4, log_outgoing_request/4]).
 
--spec log_incoming_request(mhttp:request(), mhttp:response(), StartTime,
-                           Server, inet:ip_address()) -> ok when
-    StartTime :: integer(),
+-spec log_incoming_request(mhttp:request(), mhttp:response(),
+                           mhttp:handler_context(), Server) -> ok when
     Server :: mhttp:server_id() | undefined.
-log_incoming_request(Request, Response, StartTime, Server, Address) ->
-  Data = #{address => inet:ntoa(Address)},
+log_incoming_request(Request, Response, Context, Server) ->
+  StartTime = maps:get(start_time, Context),
+  Address = maps:get(client_address, Context),
+  RequestId = maps:get(request_id, Context),
+  Data = #{address => inet:ntoa(Address),
+           request_id => RequestId},
   Data2 = case Server of
             undefined -> Data;
             _ -> Data#{server => Server}

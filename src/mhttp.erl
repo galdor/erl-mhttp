@@ -92,7 +92,8 @@
 -type handler_context() :: #{client_address => inet:ip_address(),
                              client_port => inet:port_number(),
                              path_variables => mhttp_patterns:path_variables(),
-                             start_time => integer()}.
+                             start_time => integer(),
+                             request_id => binary()}.
 
 -spec start_pool(pool_id(), mhttp_pool:options()) ->
         supervisor:startchild_ret().
