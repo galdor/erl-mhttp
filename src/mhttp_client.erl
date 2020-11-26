@@ -113,7 +113,7 @@ handle_cast(Msg, State) ->
 
 handle_info({Event, _}, _State) when Event =:= tcp_closed;
                                      Event =:= ssl_closed ->
-  ?LOG_INFO("connection closed"),
+  ?LOG_DEBUG("connection closed"),
   exit(normal);
 
 handle_info({tcp, _Socket, Data}, _State) ->
@@ -147,7 +147,7 @@ connect(Options) ->
   RequiredConnectOptions = [{mode, binary}],
   ConnectOptions = RequiredConnectOptions ++
     maps:get(connect_options, Options, []),
-  ?LOG_INFO("connecting to ~s:~b", [Host, Port]),
+  ?LOG_DEBUG("connecting to ~s:~b", [Host, Port]),
   HostString = unicode:characters_to_list(Host),
   Connect = case Transport of
               tcp -> fun gen_tcp:connect/4;
