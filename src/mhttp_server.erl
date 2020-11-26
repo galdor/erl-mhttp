@@ -31,6 +31,7 @@
                      port => inet:port_number(),
                      listen_options => [gen_tcp:listen_option()],
                      nb_acceptors => pos_integer(),
+                     route_not_found_handler => mhttp:handler(),
                      unavailable_service_handler => mhttp:handler(),
                      error_handler => mhttp:error_handler(),
                      idle_timeout => pos_integer()}.
@@ -91,10 +92,15 @@ handle_call({set_router, Router}, _From, State) ->
   {reply, ok, State#{router => Router}};
 
 handle_call({find_route, Request, Context}, _From,
-            State = #{router := Router}) ->
+            State = #{options := Options, router := Router}) ->
   case mhttp_router:find_route(Router, Request, Context) of
     {ok, {Route, Context2}} ->
       {reply, {ok, {Router, Route, Context2}}, State};
+    {error, not_found} ->
+      Handler = maps:get(route_not_found_handler, Options,
+                         fun mhttp_handlers:route_not_found_handler/2),
+      Route = {route_not_found, Handler},
+      {reply, {ok, {Router, Route, Context}}, State};
     {error, Reason} ->
       {reply, {error, Reason}, State}
   end;

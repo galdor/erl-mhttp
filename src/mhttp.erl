@@ -78,7 +78,7 @@
 
 -type body() :: iodata().
 
--type route_pattern() :: default
+-type route_pattern() :: route_not_found
                        | unavailable_service
                        | mhttp_patterns:pattern().
 -type route() :: {route_pattern(), handler()}.
@@ -98,7 +98,6 @@
 -type error_handler() :: fun((request(), handler_context(),
                               Reason :: term(), [et_erlang:stack_item()]) ->
                                 response()).
-
 
 -spec start_pool(pool_id(), mhttp_pool:options()) ->
         supervisor:startchild_ret().

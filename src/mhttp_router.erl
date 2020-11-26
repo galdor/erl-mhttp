@@ -14,20 +14,16 @@
 
 -module(mhttp_router).
 
--export([default_route/0, find_route/3]).
+-export([find_route/3]).
 
 -export_type([router/0]).
 
--type router() :: #{routes := [mhttp:route()],
-                    default_route => mhttp:route()}.
-
--spec default_route() -> mhttp:route().
-default_route() ->
-  {default, fun mhttp_handlers:not_found_handler/2}.
+-type router() :: #{routes := [mhttp:route()]}.
 
 -spec find_route(router(), mhttp:request(), mhttp:handler_context()) ->
-        {ok, {mhttp:route(), mhttp:handler_context()}} | {error, term()}.
-find_route(Router = #{routes := Routes}, Request, Context) ->
+        {ok, {mhttp:route(), mhttp:handler_context()}} |
+        {error, not_found | term()}.
+find_route(#{routes := Routes}, Request, Context) ->
   case do_find_route(Routes, Request) of
     {ok, {Route, PathVariables}} ->
       case Route of
@@ -41,8 +37,7 @@ find_route(Router = #{routes := Routes}, Request, Context) ->
           find_route(Router2, Request2, Context2)
       end;
     {error, not_found} ->
-      Route = maps:get(default_route, Router, default_route()),
-      {ok, {Route, Context}};
+      {error, not_found};
     {error, Reason} ->
       {error, Reason}
   end.

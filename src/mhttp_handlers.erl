@@ -14,13 +14,13 @@
 
 -module(mhttp_handlers).
 
--export([not_found_handler/2, unavailable_service_handler/2,
+-export([route_not_found_handler/2, unavailable_service_handler/2,
          error_handler/4,
          debug_handler/2]).
 
--spec not_found_handler(mhttp:request(), mhttp:handler_context()) ->
+-spec route_not_found_handler(mhttp:request(), mhttp:handler_context()) ->
         mhttp:handler_ret().
-not_found_handler(_Request, _Context) ->
+route_not_found_handler(_Request, _Context) ->
   #{status => 404,
     header => [{<<"Content-Type">>, <<"text/plain">>}],
     body => <<"Not found.\n">>}.
