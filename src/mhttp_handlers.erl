@@ -15,7 +15,8 @@
 -module(mhttp_handlers).
 
 -export([not_found_handler/2, unavailable_service_handler/2,
-         error_handler/4]).
+         error_handler/4,
+         debug_handler/2]).
 
 -spec not_found_handler(mhttp:request(), mhttp:handler_context()) ->
         mhttp:handler_ret().
@@ -41,5 +42,15 @@ error_handler(Request, Context, Reason, Trace) ->
                               {<<"REASON">>, Reason},
                               {<<"TRACE">>, Trace}]],
   #{status => 500,
+    header => [{<<"Content-Type">>, <<"text/plain">>}],
+    body => Body}.
+
+-spec debug_handler(mhttp:request(), mhttp:handler_context()) ->
+        mhttp:handler_ret().
+debug_handler(Request, Context) ->
+  Body = [io_lib:format(<<"~s\n~p\n\n">>, [Title, Datum]) ||
+           {Title, Datum} <- [{<<"REQUEST">>, Request},
+                              {<<"CONTEXT">>, Context}]],
+  #{status => 200,
     header => [{<<"Content-Type">>, <<"text/plain">>}],
     body => Body}.
