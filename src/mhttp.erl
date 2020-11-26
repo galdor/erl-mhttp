@@ -29,8 +29,9 @@
               header_name/0, header_value/0, header_field/0,
               header/0, body/0,
               route_pattern/0, route/0,
-              handler_fun/0, handler_ret/0, handler/0, error_handler/0,
-              handler_context/0]).
+              handler_fun/0, handler_ret/0, handler/0,
+              handler_router_options/0, handler_context/0,
+              error_handler/0]).
 
 -type pool_id() :: atom().
 -type server_id() :: atom().
@@ -84,16 +85,20 @@
 
 -type handler_fun() :: fun((request(), handler_context()) -> handler_ret()).
 -type handler_ret() :: response() | {response(), handler_context()}.
--type handler() :: handler_fun().
--type error_handler() :: fun((request(), handler_context(),
-                              Reason :: term(), [et_erlang:stack_item()]) ->
-                                response()).
-
+-type handler() :: handler_fun()
+                 | {router, mhttp_router:router()}
+                 | {router, mhttp_router:router(), handler_router_options()}.
+-type handler_router_options() :: #{strip_path_prefix := binary()}.
 -type handler_context() :: #{client_address := inet:ip_address(),
                              client_port := inet:port_number(),
                              path_variables => mhttp_patterns:path_variables(),
                              start_time := integer(),
                              request_id := binary()}.
+
+-type error_handler() :: fun((request(), handler_context(),
+                              Reason :: term(), [et_erlang:stack_item()]) ->
+                                response()).
+
 
 -spec start_pool(pool_id(), mhttp_pool:options()) ->
         supervisor:startchild_ret().

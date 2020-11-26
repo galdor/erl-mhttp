@@ -30,7 +30,16 @@ default_route() ->
 find_route(Router = #{routes := Routes}, Request, Context) ->
   case do_find_route(Routes, Request) of
     {ok, {Route, PathVariables}} ->
-      {ok, {Route, Context#{path_variables => PathVariables}}};
+      case Route of
+        {_, Handler} when is_function(Handler) ->
+          {ok, {Route, Context#{path_variables => PathVariables}}};
+        {_, {router, Router2}} ->
+          find_route(Router2, Request, Context);
+        {_, {router, Router2, Options}} ->
+          {Request2, Context2} =
+            apply_handler_router_options(Options, Request, Context),
+          find_route(Router2, Request2, Context2)
+      end;
     {error, not_found} ->
       Route = maps:get(default_route, Router, default_route()),
       {ok, {Route, Context}};
@@ -52,3 +61,17 @@ do_find_route([Route = {Pattern, _} | Routes], Request) ->
     {error, Reason} ->
       {error, Reason}
   end.
+
+-spec apply_handler_router_options(mhttp:handler_router_options(),
+                                   mhttp:request(), mhttp:handler_context()) ->
+        {mhttp:request(), mhttp:handler_context()}.
+apply_handler_router_options(Options, Request, Context) ->
+  maps:fold(fun apply_handler_router_option/3, {Request, Context}, Options).
+
+-spec apply_handler_router_option(Name :: atom(), Value :: term(),
+                                  {mhttp:request(), mhttp:handler_context()}) ->
+        {mhttp:request(), mhttp:handler_context()}.
+apply_handler_router_option(strip_path_prefix, Prefix, {Request, Context}) ->
+  Target = mhttp_request:target_uri(Request),
+  Target2 = mhttp_uri:strip_path_prefix(Target, Prefix),
+  {Request#{target => Target2}, Context}.

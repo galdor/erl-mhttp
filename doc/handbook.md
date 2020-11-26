@@ -183,7 +183,8 @@ A router is a map containing the following fields:
   request.
 
 ## Routes
-Each route is a tuple `{Pattern, Handler}`.
+Each route is a tuple `{Pattern, Handler}` where `Pattern` is a construction
+used to match requests, and `Handler` is a request handler.
 
 **TODO example**
 
@@ -193,7 +194,19 @@ All new routes are added to the end of the route list.
 **TODO**
 
 ## Handlers
-**TODO**
+A handler has one the following forms:
+- A function of type `mhttp:handler_fun/0`. The function is called with the
+  request and context as arguments, and returns either a response or a tuple
+  containing the response and the modified context.
+- A tuple `{router, Router, Options}` or `{router, Router}` (equivalent to
+  `{router, Router, #{}}`). The router is used to recursively find a matching
+  route. Options affect the behaviour of request matching; the following
+  options are supported:
+  - `strip_path_prefix`: a binary string removed from the beginning of the
+    request target path before passing the request to the new router. Note
+    that the modification of the request target path only applies to the
+    matching process. The handler function which will be called will receive
+    the original request and target.
 
 ### Error handlers
 **TODO**

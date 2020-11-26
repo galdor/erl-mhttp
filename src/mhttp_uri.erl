@@ -14,7 +14,8 @@
 
 -module(mhttp_uri).
 
--export([scheme/1, host/1, port/1, path/1, transport/1]).
+-export([scheme/1, host/1, port/1, path/1, transport/1,
+         strip_path_prefix/2]).
 
 -spec scheme(uri:uri()) -> uri:scheme().
 scheme(#{scheme := Scheme}) ->
@@ -53,3 +54,13 @@ transport(URI) ->
     <<"https">> ->
       tls
   end.
+
+-spec strip_path_prefix(uri:uri(), binary()) -> uri:uri().
+strip_path_prefix(URI, Prefix) ->
+  Path = path(URI),
+  Path2 = case string:prefix(Path, Prefix) of
+            nomatch -> Path;
+            Rest = <<$/, _/binary>> -> Rest;
+            Rest -> <<$/, Rest/binary>>
+          end,
+  URI#{path => Path2}.
