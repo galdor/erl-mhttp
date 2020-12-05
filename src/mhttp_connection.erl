@@ -45,7 +45,7 @@ start_link(Options) ->
 
 -spec init(list()) -> et_gen_server:init_ret(state()).
 init([Options]) ->
-  logger:update_process_metadata(#{domain => [mhttp, connection]}),
+  logger:update_process_metadata(#{domain => log_domain()}),
   State = #{options => Options,
             parser => mhttp_parser:new(request)},
   {ok, State}.
@@ -223,8 +223,13 @@ log_request(Request, Response, Context, #{options := Options}) ->
   case maps:get(log_requests, Options, true) of
     true ->
       Server = maps:get(server, Options, undefined),
-      mhttp_log:log_incoming_request(Request, Response, Context, Server),
+      mhttp_log:log_incoming_request(Request, Response, Context, Server,
+                                     log_domain()),
       ok;
     false ->
       ok
   end.
+
+-spec log_domain() -> [atom()].
+log_domain() ->
+  [mhttp, connection].

@@ -210,3 +210,25 @@ A handler has one the following forms:
 
 ### Error handlers
 **TODO**
+
+# Log events
+## mhttp.request.in
+Indicates that a HTTP request was received and processed.
+
+Attributes:
+- `address`: the IP address the request was received from as a string.
+- `processing_time`: the time spend processing the request in microseconds as
+  an integer.
+- `server`: the identifier string of the mhttp server managing the connection
+  the request was received on.
+- `status`: the HTTP status of the response sent as an integer.
+
+## mhttp.request.out
+Indicates that a HTTP request was sent and a response received.
+
+Attributes:
+- `pool`: if the HTTP client was part of a mhttp pool, the identifier string
+  of the pool.
+- `processing_time`: the time spend sending the request and receiving the
+  response in microseconds as an integer.
+- `status`: the HTTP status of the response received as an integer.

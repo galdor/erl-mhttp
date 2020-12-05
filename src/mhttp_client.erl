@@ -64,7 +64,7 @@ send_request(Ref, Request, Options) ->
 
 -spec init(list()) -> et_gen_server:init_ret(state()).
 init([Options]) ->
-  logger:update_process_metadata(#{domain => [mhttp, client]}),
+  logger:update_process_metadata(#{domain => log_domain()}),
   case connect(Options) of
     {ok, State} ->
       {ok, State};
@@ -223,7 +223,8 @@ log_request(Request, Response, StartTime, #{options := Options}) ->
   case maps:get(log_requests, Options, true) of
     true ->
       Pool = maps:get(pool, Options, undefined),
-      mhttp_log:log_outgoing_request(Request, Response, StartTime, Pool),
+      mhttp_log:log_outgoing_request(Request, Response, StartTime, Pool,
+                                     log_domain()),
       ok;
     false ->
       ok
@@ -294,3 +295,7 @@ recv(#{options := Options, transport := Transport, socket := Socket}, N) ->
 -spec connection_needs_closing(mhttp:response()) -> boolean().
 connection_needs_closing(Response) ->
   mhttp_header:has_connection_close(mhttp_response:header(Response)).
+
+-spec log_domain() -> [atom()].
+log_domain() ->
+  [mhttp, client].

@@ -14,12 +14,13 @@
 
 -module(mhttp_log).
 
--export([log_incoming_request/4, log_outgoing_request/4]).
+-export([log_incoming_request/5, log_outgoing_request/5]).
 
 -spec log_incoming_request(mhttp:request(), mhttp:response(),
-                           mhttp:handler_context(), Server) -> ok when
-    Server :: mhttp:server_id() | undefined.
-log_incoming_request(Request, Response, Context, Server) ->
+                           mhttp:handler_context(), Server, Domain) -> ok when
+    Server :: mhttp:server_id() | undefined,
+    Domain :: [atom()].
+log_incoming_request(Request, Response, Context, Server, Domain) ->
   StartTime = maps:get(start_time, Context),
   Address = maps:get(client_address, Context),
   RequestId = maps:get(request_id, Context),
@@ -29,25 +30,29 @@ log_incoming_request(Request, Response, Context, Server) ->
             undefined -> Data;
             _ -> Data#{server => Server}
           end,
-  log_request(Request, Response, StartTime, [mhttp, request, in], Data2).
+  Event = [mhttp, request, in],
+  log_request(Request, Response, StartTime, Domain, Event, Data2).
 
 -spec log_outgoing_request(mhttp:request(), mhttp:response(), StartTime,
-                           Pool) -> ok when
+                           Pool, Domain) -> ok when
     StartTime :: integer(),
-    Pool :: mhttp:pool_id() | undefined.
-log_outgoing_request(Request, Response, StartTime, Pool) ->
+    Pool :: mhttp:pool_id() | undefined,
+    Domain :: [atom()].
+log_outgoing_request(Request, Response, StartTime, Pool, Domain) ->
   Data = case Pool of
            undefined -> #{};
            _ -> #{pool => Pool}
          end,
-  log_request(Request, Response, StartTime, [mhttp, request, out], Data).
+  Event = [mhttp, request, out],
+  log_request(Request, Response, StartTime, Domain, Event, Data).
 
--spec log_request(mhttp:request(), mhttp:response(), StartTime, Domain,
+-spec log_request(mhttp:request(), mhttp:response(), StartTime, Domain, Event,
                   ExtraData) -> ok when
     StartTime :: integer(),
     Domain :: [atom()],
+    Event :: [atom()],
     ExtraData :: #{atom() := term()}.
-log_request(Request, Response, StartTime, Domain, ExtraData) ->
+log_request(Request, Response, StartTime, Domain, Event, ExtraData) ->
   Now = erlang:system_time(microsecond),
   MethodString = mhttp_proto:encode_method(mhttp_request:method(Request)),
   Target = mhttp_request:target_string(Request),
@@ -61,6 +66,7 @@ log_request(Request, Response, StartTime, Domain, ExtraData) ->
              end,
   ProcessingTime = Now - StartTime,
   Data = #{domain => Domain,
+           event => Event,
            status => Status,
            processing_time => ProcessingTime},
   logger:info("~s ~s ~b ~ts ~ts",
