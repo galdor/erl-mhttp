@@ -4,7 +4,7 @@
   0},
  {<<"ksuid">>,
   {git,"https://github.com/exograd/erl-ksuid.git",
-       {ref,"e7825a66964424197a418010305d8b632725ff7a"}},
+       {ref,"26690a3ba91f83e0f0ec5bcf547ca4ac50a8fb5d"}},
   0},
  {<<"uri">>,
   {git,"https://github.com/galdor/erl-uri.git",
