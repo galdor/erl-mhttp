@@ -125,9 +125,9 @@ set_server_router(ServerId, Router) ->
   ServerRef = mhttp_server:process_name(ServerId),
   mhttp_server:set_router(ServerRef, Router).
 
--spec path_variable(handler_context(), mhttp_patterns:path_variable_name()) ->
+-spec path_variable(mhttp_patterns:path_variable_name(), handler_context()) ->
         mhttp_patterns:path_variable_value().
-path_variable(#{path_variables := Variables}, Name) ->
+path_variable(Name, #{path_variables := Variables}) ->
   case maps:find(Name, Variables) of
     {ok, Value} ->
       Value;
