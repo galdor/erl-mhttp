@@ -128,7 +128,7 @@ handle_request(Request, State = #{options := Options}) ->
       error:Reason:Trace ->
         ?LOG_ERROR("request processing error: ~p~n~p", [Reason, Trace]),
         ErrHandler = maps:get(error_handler, Options),
-        ErrHandler(Request, Context, Reason, Trace)
+        {ErrHandler(Request, Context, Reason, Trace), Context}
     end,
   Response = finalize_response(State, Response0),
   log_request(Request, Response, Context2, State),
@@ -147,7 +147,7 @@ find_and_call_route(#{options := Options}, Request, Context) ->
         error:Reason:Trace ->
           ?LOG_ERROR("request handling error: ~p~n~p", [Reason, Trace]),
           ErrHandler = maps:get(error_handler, Options),
-          ErrHandler(Request, Context, Reason, Trace)
+          {ErrHandler(Request, Context, Reason, Trace), Context2}
       end;
     {error, Reason} ->
       throw({error, Reason})
