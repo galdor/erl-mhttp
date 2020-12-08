@@ -29,7 +29,7 @@
               header_name/0, header_value/0, header_field/0,
               header/0, body/0,
               route_pattern/0, route/0,
-              handler_fun/0, handler_ret/0, handler/0,
+              handler_fun/0, handler/0,
               handler_router_options/0, handler_context/0,
               error_handler/0]).
 
@@ -83,8 +83,7 @@
                        | mhttp_patterns:pattern().
 -type route() :: {route_pattern(), handler()}.
 
--type handler_fun() :: fun((request(), handler_context()) -> handler_ret()).
--type handler_ret() :: response() | {response(), handler_context()}.
+-type handler_fun() :: fun((request(), handler_context()) -> response()).
 -type handler() :: handler_fun()
                  | {router, mhttp_router:router()}
                  | {router, mhttp_router:router(), handler_router_options()}.

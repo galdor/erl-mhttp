@@ -128,7 +128,7 @@ handle_request(Request, State = #{options := Options}) ->
       error:Reason:Trace ->
         ?LOG_ERROR("request processing error: ~p~n~p", [Reason, Trace]),
         ErrHandler = maps:get(error_handler, Options),
-        call_error_handler(ErrHandler, Request, Context, Reason, Trace)
+        ErrHandler(Request, Context, Reason, Trace)
     end,
   Response = finalize_response(State, Response0),
   log_request(Request, Response, Context2, State),
@@ -147,7 +147,7 @@ find_and_call_route(#{options := Options}, Request, Context) ->
         error:Reason:Trace ->
           ?LOG_ERROR("request handling error: ~p~n~p", [Reason, Trace]),
           ErrHandler = maps:get(error_handler, Options),
-          call_error_handler(ErrHandler, Request, Context, Reason, Trace)
+          ErrHandler(Request, Context, Reason, Trace)
       end;
     {error, Reason} ->
       throw({error, Reason})
@@ -156,35 +156,17 @@ find_and_call_route(#{options := Options}, Request, Context) ->
 -spec call_route(mhttp:request(), mhttp:handler_context(), mhttp:route()) ->
         {mhttp:response(), mhttp:handler_context()}.
 call_route(Request, Context, {_, Handler}) ->
-  call_handler(Handler, Request, Context).
+  Response = call_handler(Handler, Request, Context),
+  {Response, Context}.
 
 -spec call_handler(mhttp:handler(), mhttp:request(), mhttp:handler_context()) ->
-        {mhttp:response(), mhttp:handler_context()}.
+        mhttp:response().
 call_handler(Handler, Request, Context) ->
   try
-    case Handler(Request, Context) of
-      {Response2, Context2} ->
-        {Response2, Context2};
-      Response2 ->
-        {Response2, Context}
-    end
+    Handler(Request, Context)
   catch
-    throw:{response, ThrownResponse, ThrownContext} ->
-      {ThrownResponse, ThrownContext};
     throw:{response, ThrownResponse} ->
-      {ThrownResponse, Context}
-  end.
-
--spec call_error_handler(mhttp:error_handler(), mhttp:request(),
-                         mhttp:handler_context(), Reason :: term(),
-                         [et_erlang:stack_item()]) ->
-        {mhttp:response(), mhttp:handler_context()}.
-call_error_handler(Handler, Request, Context, Reason, Trace) ->
-  case Handler(Request, Context, Reason, Trace) of
-    {Response2, Context2} ->
-      {Response2, Context2};
-    Response2 ->
-      {Response2, Context}
+      ThrownResponse
   end.
 
 -spec finalize_response(state(), mhttp:response()) -> mhttp:response().

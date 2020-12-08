@@ -196,8 +196,7 @@ All new routes are added to the end of the route list.
 ## Handlers
 A handler has one the following forms:
 - A function of type `mhttp:handler_fun/0`. The function is called with the
-  request and context as arguments, and returns either a response or a tuple
-  containing the response and the modified context.
+  request and context as arguments and returns a response.
 - A tuple `{router, Router, Options}` or `{router, Router}` (equivalent to
   `{router, Router, #{}}`). The router is used to recursively find a matching
   route. Options affect the behaviour of request matching; the following
