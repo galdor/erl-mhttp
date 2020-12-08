@@ -16,7 +16,7 @@
 
 -export([start_pool/2, send_request/1, send_request/2,
          start_server/2, set_server_router/2,
-         path_variable/2,
+         path_variable/2, request_id/1,
          header_name_equal/2]).
 
 -export_type([pool_id/0, server_id/0,
@@ -133,6 +133,10 @@ path_variable(Name, #{path_variables := Variables}) ->
     error ->
       error({unknown_path_variable, Name})
   end.
+
+-spec request_id(handler_context()) -> binary().
+request_id(#{request_id := RequestId}) ->
+  RequestId.
 
 -spec header_name_equal(header_name(), header_name()) -> boolean().
 header_name_equal(N1, N2) ->
