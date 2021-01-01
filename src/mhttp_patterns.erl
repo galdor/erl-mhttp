@@ -25,9 +25,8 @@
                  | {path_pattern(), [mhttp_filters:filter()]}
                  | {path_pattern(), mhttp:method(), [mhttp_filters:filter()]}.
 
--type path_pattern() :: binary()
-                      | {prefix, binary()}.
--type segment_pattern() :: [binary() | '*' | {named, atom()}].
+-type path_pattern() :: binary().
+-type segment_pattern() :: [binary() | '*' | {named, atom()} | trailer].
 -type segments() :: [binary()].
 
 -type path_variable_name() :: atom().
@@ -39,8 +38,6 @@
 -spec match(pattern(), mhttp:request()) -> match_result().
 match(PathPattern, Request = #{method := Method}) when
     is_binary(PathPattern) ->
-  match({PathPattern, Method, []}, Request);
-match(PathPattern = {prefix, _}, Request = #{method := Method}) ->
   match({PathPattern, Method, []}, Request);
 match({PathPattern, Filters}, Request = #{method := Method}) when
     is_list(Filters) ->
@@ -71,15 +68,10 @@ match({PathPattern, _Method, Filters}, Request = #{target := Target}) ->
   end.
 
 -spec match_path_pattern(path_pattern(), uri:path()) -> match_result().
-match_path_pattern(Pattern, Path) when is_binary(Pattern) ->
+match_path_pattern(Pattern, Path) ->
   SegmentPattern = split_path_pattern(Pattern),
   Segments = binary:split(Path, <<"/">>, [global, trim_all]),
-  match_segment_pattern(SegmentPattern, Segments);
-match_path_pattern({prefix, Prefix}, Path) ->
-  case string:prefix(Path, Prefix) of
-    nomatch -> false;
-    _ -> {true, #{}}
-  end.
+  match_segment_pattern(SegmentPattern, Segments).
 
 -spec split_path_pattern(path_pattern()) -> segment_pattern().
 split_path_pattern(Pattern) ->
@@ -89,6 +81,8 @@ split_path_pattern(Pattern) ->
                '*';
               (<<":", Name/binary>>) ->
                {named, binary_to_atom(Name)};
+              (<<"...">>) ->
+               trailer;
               (S) ->
                S
            end, Segments).
@@ -99,7 +93,11 @@ match_segment_pattern(Pattern, Segments) ->
 
 -spec match_segment_pattern(segment_pattern(), segments(), path_variables()) ->
         match_result().
-match_segment_pattern([], _Segments, Variables) ->
+match_segment_pattern([], [], Variables) ->
+  {true, Variables};
+match_segment_pattern([], _Segments, _Variables) ->
+  false;
+match_segment_pattern([trailer], _Segments, Variables) ->
   {true, Variables};
 match_segment_pattern(_Pattern, [], _Variables) ->
   false;
