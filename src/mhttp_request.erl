@@ -122,13 +122,13 @@ maybe_add_content_length(Request) ->
 -spec redirect(mhttp:request(), mhttp:status(), uri:uri()) ->
         mhttp:request().
 redirect(Request = #{method := Method, target := Target}, Status, URI) ->
-  {Method, Body} = case Status of
-                     303 ->
-                       {get, <<>>};
-                     _ ->
-                       {Method, maps:get(body, Request, <<>>)}
-                   end,
-  Request#{method => Method,
+  {Method2, Body} = case Status of
+                      303 ->
+                        {get, <<>>};
+                      _ ->
+                        {Method, maps:get(body, Request, <<>>)}
+                    end,
+  Request#{method => Method2,
            target => redirection_uri(Target, URI),
            body => Body}.
 
