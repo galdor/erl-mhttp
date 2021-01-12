@@ -18,7 +18,7 @@
          start_server/2, set_server_router/2,
          path_variable/2, request_id/1,
          header_name_equal/2,
-	 status/1]).
+         status/1]).
 
 -export_type([pool_id/0, server_id/0,
               transport/0,
@@ -72,7 +72,6 @@
 
 -type status() :: 100..999.
 -type status_name() :: mhttp_statuses:status_name().
-
 
 -type header_name() :: binary().
 -type header_value() :: binary().
@@ -146,6 +145,6 @@ header_name_equal(N1, N2) ->
   string:lowercase(N1) =:= string:lowercase(N2).
 
 -spec status(status_name()) ->
-	mhttp:status().
+        mhttp:status().
 status(Name) ->
   mhttp_statuses:status(Name).

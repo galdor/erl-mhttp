@@ -15,54 +15,61 @@
 -module(mhttp_statuses).
 
 -export([reason/1,
-	 status/1]).
+         status/1]).
 
 -export_type([status_name/0]).
 
--type status_name() :: informational()
-		     | successful()
-		     | redirection()
-		     | client_error()
-		     | server_error().
+-type status_name() ::
+        informational()
+      | successful()
+      | redirection()
+      | client_error()
+      | server_error().
 
--type informational() :: continue | switching_protocols.
+-type informational() ::
+        continue
+      | switching_protocols.
 
--type successful() :: ok
-		    | created
-		    | accepted
-		    | non_authoritative_information
-		    | no_content
-		    | reset_content.
+-type successful() ::
+        ok
+      | created
+      | accepted
+      | non_authoritative_information
+      | no_content
+      | reset_content.
 
--type redirection() :: multiple_choices
-		     | moved_permanently
-		     | found
-		     | see_other
-		     | use_proxy
-		     | temporary_redirect.
+-type redirection() ::
+        multiple_choices
+      | moved_permanently
+      | found
+      | see_other
+      | use_proxy
+      | temporary_redirect.
 
--type client_error() :: bad_request
-		      | payment_required
-		      | forbidden
-		      | not_found
-		      | method_not_allowed
-		      | not_acceptable
-		      | request_timeout
-		      | conflict
-		      | gone
-		      | length_required
-		      | payload_too_large
-		      | uri_too_long
-		      | unsupported_media_type
-		      | expectation_failed
-		      | upgrade_required.
+-type client_error() ::
+        bad_request
+      | payment_required
+      | forbidden
+      | not_found
+      | method_not_allowed
+      | not_acceptable
+      | request_timeout
+      | conflict
+      | gone
+      | length_required
+      | payload_too_large
+      | uri_too_long
+      | unsupported_media_type
+      | expectation_failed
+      | upgrade_required.
 
--type server_error() :: internal_server_error
-		      | not_implemented
-		      | bad_gateway
-		      | service_unavailable
-		      | gateway_timeout
-		      | http_version_not_supported.
+-type server_error() ::
+        internal_server_error
+      | not_implemented
+      | bad_gateway
+      | service_unavailable
+      | gateway_timeout
+      | http_version_not_supported.
 
 -spec reason(mhttp:status()) -> binary().
 
@@ -162,8 +169,7 @@ reason(425) -> <<"Too Early">>;
 reason(_Status) ->
   <<"Unknown">>.
 
--spec status(status_name()) ->
-	mhttp:status().
+-spec status(status_name()) -> mhttp:status().
 status(continue) ->
   100;
 status(switching_protocols) ->
