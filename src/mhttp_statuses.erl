@@ -14,7 +14,55 @@
 
 -module(mhttp_statuses).
 
--export([reason/1]).
+-export([reason/1,
+	 status/1]).
+
+-export_type([status_name/0]).
+
+-type status_name() :: informational()
+		     | successful()
+		     | redirection()
+		     | client_error()
+		     | server_error().
+
+-type informational() :: continue | switching_protocols.
+
+-type successful() :: ok
+		    | created
+		    | accepted
+		    | non_authoritative_information
+		    | no_content
+		    | reset_content.
+
+-type redirection() :: multiple_choices
+		     | moved_permanently
+		     | found
+		     | see_other
+		     | use_proxy
+		     | temporary_redirect.
+
+-type client_error() :: bad_request
+		      | payment_required
+		      | forbidden
+		      | not_found
+		      | method_not_allowed
+		      | not_acceptable
+		      | request_timeout
+		      | conflict
+		      | gone
+		      | length_required
+		      | payload_too_large
+		      | uri_too_long
+		      | unsupported_media_type
+		      | expectation_failed
+		      | upgrade_required.
+
+-type server_error() :: internal_server_error
+		      | not_implemented
+		      | bad_gateway
+		      | service_unavailable
+		      | gateway_timeout
+		      | http_version_not_supported.
 
 -spec reason(mhttp:status()) -> binary().
 
@@ -113,3 +161,76 @@ reason(425) -> <<"Too Early">>;
 
 reason(_Status) ->
   <<"Unknown">>.
+
+-spec status(status_name()) ->
+	mhttp:status().
+status(continue) ->
+  100;
+status(switching_protocols) ->
+  101;
+status(ok) ->
+  200;
+status(created) ->
+  201;
+status(accepted) ->
+  202;
+status(non_authoritative_information) ->
+  203;
+status(no_content) ->
+  204;
+status(reset_content) ->
+  205;
+status(multiple_choices) ->
+  300;
+status(moved_permanently) ->
+  301;
+status(found) ->
+  302;
+status(see_other) ->
+  303;
+status(use_proxy) ->
+  305;
+status(temporary_redirect) ->
+  307;
+status(bad_request) ->
+  400;
+status(payment_required) ->
+  402;
+status(forbidden) ->
+  403;
+status(not_found) ->
+  404;
+status(method_not_allowed) ->
+  405;
+status(not_acceptable) ->
+  406;
+status(request_timeout) ->
+  408;
+status(conflict) ->
+  409;
+status(gone) ->
+  410;
+status(length_required) ->
+  411;
+status(payload_too_large) ->
+  413;
+status(uri_too_long) ->
+  414;
+status(unsupported_media_type) ->
+  415;
+status(expectation_failed) ->
+  417;
+status(upgrade_required) ->
+  426;
+status(internal_server_error) ->
+  500;
+status(not_implemented) ->
+  501;
+status(bad_gateway) ->
+  502;
+status(service_unavailable) ->
+  503;
+status(gateway_timeout) ->
+  504;
+status(http_version_not_supported) ->
+  505.

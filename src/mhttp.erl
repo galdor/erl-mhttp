@@ -17,7 +17,8 @@
 -export([start_pool/2, send_request/1, send_request/2,
          start_server/2, set_server_router/2,
          path_variable/2, request_id/1,
-         header_name_equal/2]).
+         header_name_equal/2,
+	 status/1]).
 
 -export_type([pool_id/0, server_id/0,
               transport/0,
@@ -25,7 +26,7 @@
               request/0, request_options/0,
               response/0,
               msg_internal/0,
-              method/0, target/0, version/0, status/0,
+              method/0, target/0, version/0, status/0, status_name/0,
               header_name/0, header_value/0, header_field/0,
               header/0, body/0,
               route_pattern/0, route/0,
@@ -70,6 +71,8 @@
 -type version() :: http_1_0 | http_1_1 | binary().
 
 -type status() :: 100..999.
+-type status_name() :: mhttp_statuses:status_name().
+
 
 -type header_name() :: binary().
 -type header_value() :: binary().
@@ -141,3 +144,8 @@ request_id(#{request_id := RequestId}) ->
 -spec header_name_equal(header_name(), header_name()) -> boolean().
 header_name_equal(N1, N2) ->
   string:lowercase(N1) =:= string:lowercase(N2).
+
+-spec status(status_name()) ->
+	mhttp:status().
+status(Name) ->
+  mhttp_statuses:status(Name).
