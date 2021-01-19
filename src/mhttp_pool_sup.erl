@@ -46,7 +46,7 @@ pool_child_specs() ->
             end,
             [], PoolSpecs).
 
--spec pool_child_spec(mhttp:pool_id(), mhttp_client:options()) ->
+-spec pool_child_spec(mhttp:pool_id(), mhttp_pool:options()) ->
         supervisor:child_spec().
 pool_child_spec(Id, Options) ->
   #{id => Id,
