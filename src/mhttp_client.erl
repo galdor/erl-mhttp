@@ -148,12 +148,12 @@ connect(Options) ->
   ConnectOptions = RequiredConnectOptions ++
     maps:get(connect_options, Options, []),
   ?LOG_DEBUG("connecting to ~s:~b", [Host, Port]),
-  HostString = unicode:characters_to_list(Host),
+  HostAddress = host_address(Host),
   Connect = case Transport of
               tcp -> fun gen_tcp:connect/4;
               tls -> fun ssl:connect/4
             end,
-  case Connect(HostString, Port, ConnectOptions, Timeout) of
+  case Connect(HostAddress, Port, ConnectOptions, Timeout) of
     {ok, Socket} ->
       State = #{options => Options,
                 transport => Transport,
@@ -163,6 +163,24 @@ connect(Options) ->
     {error, Reason} ->
       ?LOG_ERROR("connection failed: ~p", [Reason]),
       {error, Reason}
+  end.
+
+-spec host_address(uri:host()) -> inet:hostname() | inet:socket_address().
+host_address(Host) ->
+  %% While low level connection functions are perfectly able to connect to an
+  %% IP address passed as a string, some features such as ssl peer hostname
+  %% verification treat host strings as hostnames even if they represent an IP
+  %% address. In the ssl case, they will check for SAN DNS names entries
+  %% instead of SAN IP address entries.
+  %%
+  %% Therefore we check the host string to see if it is an IP address; when
+  %% this is the case, we use the inet socket address format (a tuple).
+  HostString = binary_to_list(Host),
+  case inet:parse_address(HostString) of
+    {ok, Address} ->
+      Address;
+    {error, _} ->
+      HostString
   end.
 
 -spec do_send_request(state(), mhttp:request(), mhttp:request_options()) ->
