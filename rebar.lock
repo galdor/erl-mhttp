@@ -1,6 +1,6 @@
 [{<<"et">>,
   {git,"https://github.com/galdor/erl-et.git",
-       {ref,"c810b2e59a4145fe15d026397b17dcda8787e38f"}},
+       {ref,"7b55d59e3ef75bbd6ea4126d3855046e639709a6"}},
   0},
  {<<"ksuid">>,
   {git,"https://github.com/exograd/erl-ksuid.git",
@@ -8,5 +8,5 @@
   0},
  {<<"uri">>,
   {git,"https://github.com/galdor/erl-uri.git",
-       {ref,"0fb5142f8df2193bc472849d7fed1a4858416b37"}},
+       {ref,"aa029e922fa5ad08c0fa9f37968317916a0443b9"}},
   0}].
