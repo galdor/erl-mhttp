@@ -21,7 +21,7 @@
 -export([start_link/1, send_request/2, send_request/3]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
--export_type([name/0, ref/0, options/0]).
+-export_type([name/0, ref/0, options/0, tcp_option/0, tls_option/0]).
 
 -type name() :: et_gen_server:name().
 -type ref() :: et_gen_server:ref().
@@ -32,14 +32,17 @@
 -type options() :: #{host => uri:host(),
                      port => uri:port_number(),
                      transport => mhttp:transport(),
-                     tcp_options => [gen_tcp:connect_option()],
-                     tls_options => [ssl:tls_client_option()],
+                     tcp_options => [tcp_option()],
+                     tls_options => [tls_option()],
                      connection_timeout => timeout(),
                      read_timeout => timeout(),
                      header => mhttp:header(),
                      compression => boolean(),
                      log_requests => boolean(),
                      pool => mhttp:pool_id()}.
+
+-type tcp_option() :: gen_tcp:connect_option().
+-type tls_option() :: ssl:tls_client_option().
 
 -type state() :: #{options := options(),
                    transport := mhttp:transport(),
@@ -130,7 +133,7 @@ options_transport(Options) ->
   maps:get(transport, Options, tcp).
 
 -spec options_connect_options(options()) -> [Options] when
-    Options :: gen_tcp:connect_option() | ssl:tls_client_option().
+    Options :: tcp_option() | tls_option().
 options_connect_options(Options = #{transport := tcp}) ->
   maps:get(tcp_options, Options, []);
 options_connect_options(Options = #{transport := tls}) ->
