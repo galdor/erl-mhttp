@@ -21,12 +21,10 @@
 -export([start_link/1, send_request/2, send_request/3]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
--export_type([name/0, ref/0, connect_options/0, options/0]).
+-export_type([name/0, ref/0, options/0]).
 
 -type name() :: et_gen_server:name().
 -type ref() :: et_gen_server:ref().
-
--type connect_options() :: [gen_tcp:connect_option() | ssl:tls_client_option()].
 
 %% XXX If the client is part of a pool, we need to keep track of the pool id
 %% for request logging. Using options to store the pool id is a hack, we need
@@ -34,9 +32,10 @@
 -type options() :: #{host => uri:host(),
                      port => uri:port_number(),
                      transport => mhttp:transport(),
+                     tcp_options => [gen_tcp:connect_option()],
+                     tls_options => [ssl:tls_client_option()],
                      connection_timeout => timeout(),
                      read_timeout => timeout(),
-                     connect_options => connect_options(),
                      header => mhttp:header(),
                      compression => boolean(),
                      log_requests => boolean(),
@@ -130,6 +129,13 @@ handle_info(Msg, State) ->
 options_transport(Options) ->
   maps:get(transport, Options, tcp).
 
+-spec options_connect_options(options()) -> [Options] when
+    Options :: gen_tcp:connect_option() | ssl:tls_client_option().
+options_connect_options(Options = #{transport := tcp}) ->
+  maps:get(tcp_options, Options, []);
+options_connect_options(Options = #{transport := tls}) ->
+  maps:get(tcp_options, Options, []) ++ maps:get(tls_options, Options, []).
+
 -spec options_host(options()) -> binary().
 options_host(Options) ->
   maps:get(host, Options, <<"localhost">>).
@@ -145,8 +151,7 @@ connect(Options) ->
   Port = options_port(Options),
   Timeout = maps:get(connection_timeout, Options, 5000),
   RequiredConnectOptions = [{mode, binary}],
-  ConnectOptions = RequiredConnectOptions ++
-    maps:get(connect_options, Options, []),
+  ConnectOptions = RequiredConnectOptions ++ options_connect_options(Options),
   ?LOG_DEBUG("connecting to ~s:~b", [Host, Port]),
   HostAddress = host_address(Host),
   Connect = case Transport of
