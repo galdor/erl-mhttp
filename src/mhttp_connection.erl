@@ -165,7 +165,7 @@ call_handler(Handler, Request, Context) ->
   try
     Handler(Request, Context)
   catch
-    throw:{response, ThrownResponse} ->
+    throw:{http_response, ThrownResponse} ->
       ThrownResponse
   end.
 

@@ -28,7 +28,8 @@ server_test_() ->
    [fun start_stop/0,
     fun no_router/0,
     fun not_found/0,
-    fun found/0]}.
+    fun found/0,
+    fun thrown_response/0]}.
 
 start_stop() ->
   ok.
@@ -45,6 +46,15 @@ not_found() ->
 
 found() ->
   Handler = fun (_Request, _Context) -> #{status => 200} end,
+  Router = #{routes => [{<<"/">>, Handler}]},
+  mhttp:set_server_router(test, Router),
+  {ok, {{_, Status, _}, _, _}} = httpc:request(test_uri(<<"/">>)),
+  ?assertEqual(200, Status).
+
+thrown_response() ->
+  Handler = fun (_Request, _Context) ->
+                throw({http_response, #{status => 200}})
+            end,
   Router = #{routes => [{<<"/">>, Handler}]},
   mhttp:set_server_router(test, Router),
   {ok, {{_, Status, _}, _, _}} = httpc:request(test_uri(<<"/">>)),
