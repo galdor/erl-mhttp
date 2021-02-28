@@ -127,7 +127,7 @@ The following server options are available:
 - `listen_options`: a list of `gen_tcp` listen options to apply.
 - `nb_acceptors`: the number of connection acceptor processes to start
   (default: 5).
-- `unavailable_service_handler`: the handler called when the server is not
+- `service_unavailable_handler`: the handler called when the server is not
   available, for example before it has been assigned a router. The default
   handler sends a HTTP 503 plain text response.
 - `error_handler`: the error handler called when an error is signaled during
@@ -170,7 +170,7 @@ Router = #{routes => [{<<"/">>, Handler}]},
 mhttp:set_server_router(example, Router).
 ```
 
-Until a router has been set, a server will return an `unavailable_service`
+Until a router has been set, a server will return a `service_unavailable`
 route. The default handler for this route returns a HTTP 503 response.
 
 # Router

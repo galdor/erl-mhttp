@@ -81,7 +81,7 @@
 -type body() :: iodata().
 
 -type route_pattern() :: route_not_found
-                       | unavailable_service
+                       | service_unavailable
                        | mhttp_patterns:pattern().
 -type route() :: {route_pattern(), handler()}.
 

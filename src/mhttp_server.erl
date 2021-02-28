@@ -32,7 +32,7 @@
                      listen_options => [gen_tcp:listen_option()],
                      nb_acceptors => pos_integer(),
                      route_not_found_handler => mhttp:handler(),
-                     unavailable_service_handler => mhttp:handler(),
+                     service_unavailable_handler => mhttp:handler(),
                      error_handler => mhttp:error_handler(),
                      idle_timeout => pos_integer()}.
 
@@ -107,9 +107,9 @@ handle_call({find_route, Request, Context}, _From,
 handle_call({find_route, _Request, Context}, _From,
             State = #{options := Options}) ->
   Router = #{routes => []},
-  Handler = maps:get(unavailable_service_handler, Options,
-                     fun mhttp_handlers:unavailable_service_handler/2),
-  Route = {unavailable_service, Handler},
+  Handler = maps:get(service_unavailable_handler, Options,
+                     fun mhttp_handlers:service_unavailable_handler/2),
+  Route = {service_unavailable, Handler},
   {reply, {ok, {Router, Route, Context}}, State};
 
 handle_call(Msg, From, State) ->

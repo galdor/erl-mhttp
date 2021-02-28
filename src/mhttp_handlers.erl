@@ -14,7 +14,7 @@
 
 -module(mhttp_handlers).
 
--export([route_not_found_handler/2, unavailable_service_handler/2,
+-export([route_not_found_handler/2, service_unavailable_handler/2,
          error_handler/4,
          debug_handler/2]).
 
@@ -25,9 +25,9 @@ route_not_found_handler(_Request, _Context) ->
     header => [{<<"Content-Type">>, <<"text/plain">>}],
     body => <<"Not found.\n">>}.
 
--spec unavailable_service_handler(mhttp:request(), mhttp:handler_context()) ->
+-spec service_unavailable_handler(mhttp:request(), mhttp:handler_context()) ->
         mhttp:response().
-unavailable_service_handler(_Request, _Context) ->
+service_unavailable_handler(_Request, _Context) ->
   #{status => 503,
     header => [{<<"Content-Type">>, <<"text/plain">>}],
     body => <<"Service unavailable.\n">>}.
