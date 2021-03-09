@@ -2,23 +2,38 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
+match_test_() ->
+  Match = fun (RangeString, TypeString) ->
+              {ok, Range} = mhttp_media_range:parse(RangeString),
+              {ok, Type} = mhttp_media_type:parse(TypeString),
+              mhttp_media_range:match(Range, Type)
+          end,
+  [?_assert(Match(<<"*/*">>, <<"text/plain">>)),
+   ?_assert(Match(<<"text/*">>, <<"text/plain">>)),
+   ?_assert(Match(<<"text/plain">>, <<"Text/plaiN">>)),
+   ?_assert(Match(<<"text/plain;q=0.8">>, <<"Text/plaiN">>)),
+   ?_assert(Match(<<"text/plain;q=0.8;a=1">>, <<"Text/plaiN;a=1;b=2">>)),
+   ?_assertNot(Match(<<"text/*">>, <<"application/json">>)),
+   ?_assertNot(Match(<<"text/plain">>, <<"application/json">>))].
+
 parse_test_() ->
+  Parse = fun mhttp_media_range:parse/1,
   [?_assertEqual({ok, {<<"text">>, <<"plain">>}},
-                 mhttp_media_range:parse(<<"text/plain">>)),
+                 Parse(<<"text/plain">>)),
    ?_assertEqual({ok, {<<"text">>, any}},
-                 mhttp_media_range:parse(<<"text/*">>)),
+                 Parse(<<"text/*">>)),
    ?_assertEqual({ok, {any, any}},
-                 mhttp_media_range:parse(<<"*/*">>)),
+                 Parse(<<"*/*">>)),
    ?_assertEqual({ok, {<<"text">>, any, 0.8, []}},
-                 mhttp_media_range:parse(<<"text/*;q=0.8">>)),
+                 Parse(<<"text/*;q=0.8">>)),
    ?_assertEqual({ok, {<<"text">>, <<"plain">>, 1.0, []}},
-                 mhttp_media_range:parse(<<"text/plain ;\tq =\t 1.0">>)),
+                 Parse(<<"text/plain ;\tq =\t 1.0">>)),
    ?_assertEqual({ok, {<<"text">>, <<"plain">>, 1.0,
                        [{<<"a">>, <<"1">>}, {<<"b">>, <<"2">>}]}},
-                 mhttp_media_range:parse(<<"text/plain;q=1.0;a=1;b=2">>)),
+                 Parse(<<"text/plain;q=1.0;a=1;b=2">>)),
    ?_assertEqual({error, invalid_wildcard},
-                 mhttp_media_range:parse(<<"*/foo">>)),
+                 Parse(<<"*/foo">>)),
    ?_assertEqual({error, {invalid_weight, <<"1foo">>}},
-                 mhttp_media_range:parse(<<"text/*;q=1foo">>)),
+                 Parse(<<"text/*;q=1foo">>)),
    ?_assertEqual({error, missing_weight},
-                 mhttp_media_range:parse(<<"*/*;a=1">>))].
+                 Parse(<<"*/*;a=1">>))].

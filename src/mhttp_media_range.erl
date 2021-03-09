@@ -1,16 +1,16 @@
 -module(mhttp_media_range).
 
--export([parse/1]).
+-export([match/2, parse/1]).
 
--export_type([type/0, weight/0, media_range/0, parameters/0,
+-export_type([media_range/0, type/0, weight/0, parameters/0,
               error_reason/0]).
-
--type type() :: mhttp_media_type:type() | any.
--type weight() :: float().
 
 -type media_range() ::
         {type(), type()}
       | {type(), type(), weight(), parameters()}.
+
+-type type() :: mhttp_media_type:type() | any.
+-type weight() :: float().
 
 -type parameters() :: mhttp_media_type:parameters().
 
@@ -19,6 +19,19 @@
       | invalid_wildcard
       | {invalid_weight, binary()}
       | missing_weight.
+
+-spec match(media_range(), mhttp_media_type:media_type()) -> boolean().
+match(Range, {Type, Subtype}) ->
+  match(Range, {Type, Subtype, []});
+match({Type, Subtype}, MediaType) ->
+  match({Type, Subtype, 1.0, []}, MediaType);
+match({any, any, _, _}, _) ->
+  true;
+match({Type1, any, _, _}, {Type2, _, _}) ->
+  string:lowercase(Type1) =:= string:lowercase(Type2);
+match({Type1, Subtype1, _, _}, {Type2, Subtype2, _}) ->
+  (string:lowercase(Type1) =:= string:lowercase(Type2)) and
+    (string:lowercase(Subtype1) =:= string:lowercase(Subtype2)).
 
 -spec parse(binary()) -> {ok, media_range} | {error, error_reason()}.
 parse(Data) ->
