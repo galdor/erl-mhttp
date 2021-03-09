@@ -1,6 +1,7 @@
 -module(mhttp_media).
 
--export([type_parameters/1, type_parameter/2, type_parameter/3,
+-export([type/1, subtype/1,
+         type_parameters/1, type_parameter/2, type_parameter/3,
          find_type_parameter/2, has_type_parameter/2,
          format_type/1, parse_type/1]).
 
@@ -17,6 +18,18 @@
 
 -type type() :: {binary(), binary()}
               | {binary(), binary(), parameters()}.
+
+-spec type(type()) -> binary().
+type({Type, _}) ->
+  Type;
+type({Type, _, _}) ->
+  Type.
+
+-spec subtype(type()) -> binary().
+subtype({_, Subtype}) ->
+  Subtype;
+subtype({_, Subtype, _}) ->
+  Subtype.
 
 -spec type_parameters(type()) -> parameters().
 type_parameters({_, _}) ->
