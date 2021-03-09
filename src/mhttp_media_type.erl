@@ -6,40 +6,43 @@
          format/1, parse/1,
          normalize/1]).
 
--export_type([parameter_name/0, parameter_value/0, parameters/0, type/0,
+-export_type([media_type/0, type/0,
+              parameter_name/0, parameter_value/0, parameters/0,
               error_reason/0]).
+
+-type media_type() :: {binary(), binary()}
+                    | {binary(), binary(), parameters()}.
+
+-type type() :: binary().
 
 -type parameter_name() :: binary().
 -type parameter_value() :: binary().
 -type parameter() :: {parameter_name(), parameter_value()}.
 -type parameters() :: [parameter()].
 
--type type() :: {binary(), binary()}
-              | {binary(), binary(), parameters()}.
-
 -type error_reason() ::
         invalid_format
       | {invalid_parameter, binary()}.
 
--spec type(type()) -> binary().
+-spec type(media_type()) -> type().
 type({Type, _}) ->
   Type;
 type({Type, _, _}) ->
   Type.
 
--spec subtype(type()) -> binary().
+-spec subtype(media_type()) -> type().
 subtype({_, Subtype}) ->
   Subtype;
 subtype({_, Subtype, _}) ->
   Subtype.
 
--spec parameters(type()) -> parameters().
+-spec parameters(media_type()) -> parameters().
 parameters({_, _}) ->
   [];
 parameters({_, _, Parameters}) ->
   Parameters.
 
--spec parameter(type(), parameter_name()) -> parameter_value().
+-spec parameter(media_type(), parameter_name()) -> parameter_value().
 parameter(Type, Name) ->
   case find_parameter(Type, Name) of
     {ok, Value} ->
@@ -48,7 +51,7 @@ parameter(Type, Name) ->
       error({unknown_media_type_parameter, Name, Type})
   end.
 
--spec parameter(type(), parameter_name(), parameter_value()) ->
+-spec parameter(media_type(), parameter_name(), parameter_value()) ->
         parameter_value().
 parameter(Type, Name, DefaultValue) ->
   case find_parameter(Type, Name) of
@@ -58,7 +61,7 @@ parameter(Type, Name, DefaultValue) ->
       DefaultValue
   end.
 
--spec find_parameter(type(), parameter_name()) ->
+-spec find_parameter(media_type(), parameter_name()) ->
         {ok, parameter_value()} | error.
 find_parameter(Type, Name0) ->
   Name = string:lowercase(Name0),
@@ -72,7 +75,7 @@ find_parameter(Type, Name0) ->
       error
   end.
 
--spec has_parameter(type(), parameter_name()) -> boolean().
+-spec has_parameter(media_type(), parameter_name()) -> boolean().
 has_parameter(Type, Name) ->
   case find_parameter(Type, Name) of
     {ok, _} ->
@@ -81,7 +84,7 @@ has_parameter(Type, Name) ->
       false
   end.
 
--spec format(type()) -> binary().
+-spec format(media_type()) -> binary().
 format({Type, Subtype}) ->
   format({Type, Subtype, []});
 format({Type, Subtype, Parameters}) ->
@@ -91,7 +94,7 @@ format({Type, Subtype, Parameters}) ->
 format_parameters(Parameters) ->
   [[$;, N, $=, V] || {N, V} <- Parameters].
 
--spec parse(binary()) -> {ok, type()} | {error, error_reason()}.
+-spec parse(binary()) -> {ok, media_type()} | {error, error_reason()}.
 parse(Data) ->
   try
     {ok, parse_1(Data)}
@@ -100,7 +103,7 @@ parse(Data) ->
       {error, Reason}
   end.
 
--spec parse_1(binary()) -> type().
+-spec parse_1(binary()) -> media_type().
 parse_1(Data) ->
   case binary:split(Data, <<"/">>) of
     [<<>>, _] ->
@@ -136,7 +139,7 @@ parse_parameter(Data) ->
       throw({error, {invalid_parameter, Data}})
   end.
 
--spec normalize(type()) -> type().
+-spec normalize(media_type()) -> media_type().
 normalize({Type, Subtype}) ->
   {string:lowercase(Type), string:lowercase(Subtype)};
 normalize({Type, Subtype, Parameters}) ->
