@@ -2,6 +2,17 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
+format_type_test_() ->
+  [?_assertEqual(<<"text/plain">>,
+                mhttp_media:format_type({<<"text">>, <<"plain">>})),
+   ?_assertEqual(<<"text/plain;encoding=UTF-8">>,
+                 mhttp_media:format_type({<<"text">>, <<"plain">>,
+                                          [{<<"encoding">>, <<"UTF-8">>}]})),
+   ?_assertEqual(<<"x-mhttp/test;a=1;b=2">>,
+                 mhttp_media:format_type({<<"x-mhttp">>, <<"test">>,
+                                          [{<<"a">>, <<"1">>},
+                                           {<<"b">>, <<"2">>}]}))].
+
 parse_type_test_() ->
   [?_assertEqual({ok, {<<"text">>, <<"plain">>}},
                  mhttp_media:parse_type(<<"text/plain">>)),

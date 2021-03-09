@@ -1,6 +1,6 @@
 -module(mhttp_media).
 
--export([parse_type/1]).
+-export([format_type/1, parse_type/1]).
 
 -export_type([parameter_name/0, parameter_value/0, parameters/0, type/0]).
 
@@ -15,6 +15,16 @@
 
 -type type() :: {binary(), binary()}
               | {binary(), binary(), parameters()}.
+
+-spec format_type(type()) -> binary().
+format_type({Type, Subtype}) ->
+  format_type({Type, Subtype, []});
+format_type({Type, Subtype, Parameters}) ->
+  iolist_to_binary([Type, $/, Subtype, format_parameters(Parameters)]).
+
+-spec format_parameters(parameters()) -> iodata().
+format_parameters(Parameters) ->
+  [[$;, N, $=, V] || {N, V} <- Parameters].
 
 -spec parse_type(binary()) -> {ok, type()} | {error, error_reason()}.
 parse_type(Data) ->
