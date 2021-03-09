@@ -6,11 +6,8 @@
          format/1, parse/1,
          normalize/1]).
 
--export_type([parameter_name/0, parameter_value/0, parameters/0, type/0]).
-
--type error_reason() ::
-        invalid_format
-      | {invalid_parameter, binary()}.
+-export_type([parameter_name/0, parameter_value/0, parameters/0, type/0,
+              error_reason/0]).
 
 -type parameter_name() :: binary().
 -type parameter_value() :: binary().
@@ -19,6 +16,10 @@
 
 -type type() :: {binary(), binary()}
               | {binary(), binary(), parameters()}.
+
+-type error_reason() ::
+        invalid_format
+      | {invalid_parameter, binary()}.
 
 -spec type(type()) -> binary().
 type({Type, _}) ->
@@ -40,28 +41,32 @@ parameters({_, _, Parameters}) ->
 
 -spec parameter(type(), parameter_name()) -> parameter_value().
 parameter(Type, Name) ->
-  case lists:keyfind(Name, 1, parameters(Type)) of
-    {_, Value} ->
+  case find_parameter(Type, Name) of
+    {ok, Value} ->
       Value;
-    false ->
+    error ->
       error({unknown_media_type_parameter, Name, Type})
   end.
 
 -spec parameter(type(), parameter_name(), parameter_value()) ->
         parameter_value().
 parameter(Type, Name, DefaultValue) ->
-  case lists:keyfind(Name, 1, parameters(Type)) of
-    {_, Value} ->
+  case find_parameter(Type, Name) of
+    {ok, Value} ->
       Value;
-    false ->
+    error ->
       DefaultValue
   end.
 
 -spec find_parameter(type(), parameter_name()) ->
         {ok, parameter_value()} | error.
-find_parameter(Type, Name) ->
-  case lists:keyfind(Name, 1, parameters(Type)) of
-    {_, Value} ->
+find_parameter(Type, Name0) ->
+  Name = string:lowercase(Name0),
+  Pred = fun ({N, _}) ->
+             string:lowercase(N) =:= Name
+         end,
+  case lists:search(Pred, parameters(Type)) of
+    {value, {_, Value}} ->
       {ok, Value};
     false ->
       error
@@ -69,7 +74,12 @@ find_parameter(Type, Name) ->
 
 -spec has_parameter(type(), parameter_name()) -> boolean().
 has_parameter(Type, Name) ->
-  lists:keymember(Name, 1, parameters(Type)).
+  case find_parameter(Type, Name) of
+    {ok, _} ->
+      true;
+    error ->
+      false
+  end.
 
 -spec format(type()) -> binary().
 format({Type, Subtype}) ->
