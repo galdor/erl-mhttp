@@ -1,10 +1,10 @@
--module(mhttp_media).
+-module(mhttp_media_type).
 
 -export([type/1, subtype/1,
-         type_parameters/1, type_parameter/2, type_parameter/3,
-         find_type_parameter/2, has_type_parameter/2,
-         format_type/1, parse_type/1,
-         normalize_type/1]).
+         parameters/1, parameter/2, parameter/3,
+         find_parameter/2, has_parameter/2,
+         format/1, parse/1,
+         normalize/1]).
 
 -export_type([parameter_name/0, parameter_value/0, parameters/0, type/0]).
 
@@ -32,66 +32,66 @@ subtype({_, Subtype}) ->
 subtype({_, Subtype, _}) ->
   Subtype.
 
--spec type_parameters(type()) -> parameters().
-type_parameters({_, _}) ->
+-spec parameters(type()) -> parameters().
+parameters({_, _}) ->
   [];
-type_parameters({_, _, Parameters}) ->
+parameters({_, _, Parameters}) ->
   Parameters.
 
--spec type_parameter(type(), parameter_name()) -> parameter_value().
-type_parameter(Type, Name) ->
-  case lists:keyfind(Name, 1, type_parameters(Type)) of
+-spec parameter(type(), parameter_name()) -> parameter_value().
+parameter(Type, Name) ->
+  case lists:keyfind(Name, 1, parameters(Type)) of
     {_, Value} ->
       Value;
     false ->
       error({unknown_media_type_parameter, Name, Type})
   end.
 
--spec type_parameter(type(), parameter_name(), parameter_value()) ->
+-spec parameter(type(), parameter_name(), parameter_value()) ->
         parameter_value().
-type_parameter(Type, Name, DefaultValue) ->
-  case lists:keyfind(Name, 1, type_parameters(Type)) of
+parameter(Type, Name, DefaultValue) ->
+  case lists:keyfind(Name, 1, parameters(Type)) of
     {_, Value} ->
       Value;
     false ->
       DefaultValue
   end.
 
--spec find_type_parameter(type(), parameter_name()) ->
+-spec find_parameter(type(), parameter_name()) ->
         {ok, parameter_value()} | error.
-find_type_parameter(Type, Name) ->
-  case lists:keyfind(Name, 1, type_parameters(Type)) of
+find_parameter(Type, Name) ->
+  case lists:keyfind(Name, 1, parameters(Type)) of
     {_, Value} ->
       {ok, Value};
     false ->
       error
   end.
 
--spec has_type_parameter(type(), parameter_name()) -> boolean().
-has_type_parameter(Type, Name) ->
-  lists:keymember(Name, 1, type_parameters(Type)).
+-spec has_parameter(type(), parameter_name()) -> boolean().
+has_parameter(Type, Name) ->
+  lists:keymember(Name, 1, parameters(Type)).
 
--spec format_type(type()) -> binary().
-format_type({Type, Subtype}) ->
-  format_type({Type, Subtype, []});
-format_type({Type, Subtype, Parameters}) ->
+-spec format(type()) -> binary().
+format({Type, Subtype}) ->
+  format({Type, Subtype, []});
+format({Type, Subtype, Parameters}) ->
   iolist_to_binary([Type, $/, Subtype, format_parameters(Parameters)]).
 
 -spec format_parameters(parameters()) -> iodata().
 format_parameters(Parameters) ->
   [[$;, N, $=, V] || {N, V} <- Parameters].
 
--spec parse_type(binary()) -> {ok, type()} | {error, error_reason()}.
-parse_type(Data) ->
+-spec parse(binary()) -> {ok, type()} | {error, error_reason()}.
+parse(Data) ->
   try
-    {ok, parse_type_1(Data)}
+    {ok, parse_1(Data)}
   catch
     throw:{error, Reason} ->
       {error, Reason}
   end.
 
--spec parse_type_1(binary()) -> type().
-parse_type_1(Data) ->
+-spec parse_1(binary()) -> type().
+parse_1(Data) ->
   case binary:split(Data, <<"/">>) of
     [<<>>, _] ->
       throw({error, invalid_format});
@@ -126,9 +126,9 @@ parse_parameter(Data) ->
       throw({error, {invalid_parameter, Data}})
   end.
 
--spec normalize_type(type()) -> type().
-normalize_type({Type, Subtype}) ->
+-spec normalize(type()) -> type().
+normalize({Type, Subtype}) ->
   {string:lowercase(Type), string:lowercase(Subtype)};
-normalize_type({Type, Subtype, Parameters}) ->
+normalize({Type, Subtype, Parameters}) ->
   {string:lowercase(Type), string:lowercase(Subtype),
    [{string:lowercase(N), V} || {N, V} <- Parameters]}.
