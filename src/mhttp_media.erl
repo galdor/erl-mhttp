@@ -3,7 +3,8 @@
 -export([type/1, subtype/1,
          type_parameters/1, type_parameter/2, type_parameter/3,
          find_type_parameter/2, has_type_parameter/2,
-         format_type/1, parse_type/1]).
+         format_type/1, parse_type/1,
+         normalize_type/1]).
 
 -export_type([parameter_name/0, parameter_value/0, parameters/0, type/0]).
 
@@ -124,3 +125,10 @@ parse_parameter(Data) ->
     [_] ->
       throw({error, {invalid_parameter, Data}})
   end.
+
+-spec normalize_type(type()) -> type().
+normalize_type({Type, Subtype}) ->
+  {string:lowercase(Type), string:lowercase(Subtype)};
+normalize_type({Type, Subtype, Parameters}) ->
+  {string:lowercase(Type), string:lowercase(Subtype),
+   [{string:lowercase(N), V} || {N, V} <- Parameters]}.

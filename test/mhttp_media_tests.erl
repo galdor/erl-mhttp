@@ -43,3 +43,13 @@ parse_type_test_() ->
                  mhttp_media:parse_type(<<"foo/bar;=1">>)),
    ?_assertEqual({error, {invalid_parameter, <<"=">>}},
                  mhttp_media:parse_type(<<"foo/bar;=">>))].
+
+normalize_type_test_() ->
+  [?_assertEqual({<<"text">>, <<"plain">>},
+                 mhttp_media:normalize_type({<<"Text">>, <<"plaiN">>})),
+   ?_assertEqual({<<"text">>, <<"plain">>},
+                 mhttp_media:normalize_type({<<"Text">>, <<"plaiN">>})),
+   ?_assertEqual({<<"text">>, <<"plain">>, [{<<"encoding">>, <<"UTF-8">>}]},
+                 mhttp_media:normalize_type({<<"Text">>, <<"plaiN">>,
+                                             [{<<"EncodinG">>,
+                                               <<"UTF-8">>}]}))].
