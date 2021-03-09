@@ -33,7 +33,7 @@ match({Type1, Subtype1, _, _}, {Type2, Subtype2, _}) ->
   (string:lowercase(Type1) =:= string:lowercase(Type2)) and
     (string:lowercase(Subtype1) =:= string:lowercase(Subtype2)).
 
--spec parse(binary()) -> {ok, media_range} | {error, error_reason()}.
+-spec parse(binary()) -> {ok, media_range()} | {error, error_reason()}.
 parse(Data) ->
   case mhttp_media_type:parse(Data) of
     {ok, MediaType} ->
