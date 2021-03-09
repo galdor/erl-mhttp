@@ -233,3 +233,13 @@ Attributes:
 - `processing_time`: the time spend sending the request and receiving the
   response in microseconds as an integer.
 - `status`: the HTTP status of the response received as an integer.
+
+# Media types
+The `mhttp_media_type` module provide support for MIME media types. A media
+type is represented as one of the following tuples:
+- `{Type, Subtype}`
+- `{Type, Subtype, Parameters}`.
+
+Parameters are represented as a list of tuples of the form `{Name, Value}`.
+
+Types, subtypes, parameter names and parameter values are all binaries.
