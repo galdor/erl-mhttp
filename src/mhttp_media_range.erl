@@ -20,7 +20,10 @@
       | {invalid_weight, binary()}
       | missing_weight.
 
--spec match(media_range(), mhttp_media_type:media_type()) -> boolean().
+-spec match(media_range(), mhttp_media_type:media_type()) -> boolean();
+           ([media_range()], mhttp_media_type:media_type()) -> boolean().
+match(Ranges, MediaType) when is_list(Ranges) ->
+  lists:any(fun (Range) -> match(Range, MediaType) end, Ranges);
 match(Range, {Type, Subtype}) ->
   match(Range, {Type, Subtype, []});
 match({Type, Subtype}, MediaType) ->
