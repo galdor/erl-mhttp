@@ -3,7 +3,7 @@
 -export([format/1, parse/1,
          format_pairs/1, parse_pairs/1]).
 
--export_type([cookie/0, error_reason/0]).
+-export_type([cookie/0, cookie_pair/0, error_reason/0]).
 
 %% Reference: RFC 6265.
 

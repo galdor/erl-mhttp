@@ -130,3 +130,23 @@ transfer_encoding_test_() ->
                  TransferEncoding([{<<"Transfer-Encoding">>, <<"Foo">>},
                                    {<<"Transfer-Encoding">>, <<"bAR, baz">>},
                                    {<<"Transfer-Encoding">>, <<"HELLO">>}]))].
+
+set_cookies_test_() ->
+  SetCookies = fun mhttp_header:set_cookies/1,
+  [?_assertEqual([],
+                 SetCookies([])),
+   ?_assertEqual([#{name => <<"Foo">>, value => <<"bar">>, secure => true},
+                  #{name => <<"Foo">>, value => <<"baz">>}],
+                 SetCookies([{<<"Set-Cookie">>, <<"Foo=bar; Secure">>},
+                             {<<"Set-Cookie">>, <<"Foo=baz">>}]))].
+
+cookies_test_() ->
+  Cookies = fun mhttp_header:cookies/1,
+  [?_assertEqual([],
+                 Cookies([])),
+   ?_assertEqual([{<<"Foo">>, <<"bar">>},
+                  {<<"A">>, <<"1">>},
+                  {<<"B">>, <<>>},
+                  {<<"C">>, <<"3">>}],
+                 Cookies([{<<"Cookie">>, <<"Foo=bar">>},
+                          {<<"Cookie">>, <<"A=1; B=; C=3">>}]))].

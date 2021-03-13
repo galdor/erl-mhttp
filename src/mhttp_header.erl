@@ -22,7 +22,8 @@
          content_length/1,
          transfer_encoding/1, content_encoding/1,
          has_connection_close/1,
-         body/1]).
+         body/1,
+         set_cookies/1, cookies/1]).
 
 -spec new() -> mhttp:header().
 new() ->
@@ -181,3 +182,39 @@ body(Header) ->
           {error, Reason}
       end
   end.
+
+-spec set_cookies(mhttp:header()) -> {ok, [Cookie]} | {error, Reason} when
+    Cookie :: mhttp_cookies:cookie(),
+    Reason :: {invalid_cookie, mhttp_cookies:error_reason(), binary()}.
+set_cookies(Header) ->
+  Values = find_all(Header, <<"Set-Cookie">>),
+  Fun = fun
+          F([], Cookies) ->
+            lists:reverse(Cookies);
+          F([Value | Rest], Cookies) ->
+            case mhttp_cookies:parse(Value) of
+              {ok, Cookie} ->
+                F(Rest, [Cookie | Cookies]);
+              {error, Reason} ->
+                {error, {invalid_cookie, Reason, Value}}
+            end
+        end,
+  Fun(Values, []).
+
+-spec cookies(mhttp:header()) -> {ok, CookiePairs} | {error, Reason} when
+    CookiePairs :: [mhttp_cookies:cookie_pair()],
+    Reason :: {invalid_cookie_pairs, mhttp_cookies:error_reason(), binary()}.
+cookies(Header) ->
+  Values = find_all(Header, <<"Cookie">>),
+  Fun = fun
+          F([], Acc) ->
+            Acc;
+          F([Value | Rest], Acc) ->
+            case mhttp_cookies:parse_pairs(Value) of
+              {ok, Pairs} ->
+                F(Rest, Acc ++ Pairs);
+              {error, Reason} ->
+                {error, {invalid_cookie_pairs, Reason, Value}}
+            end
+        end,
+  Fun(Values, []).
