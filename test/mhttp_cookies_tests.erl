@@ -156,3 +156,22 @@ parse_test_() ->
                          "; Secure"
                          "; HttpOnly"
                          "; Hello world!">>))].
+
+format_pairs_test_() ->
+  Format = fun mhttp_cookies:format_pairs/1,
+  [?_assertEqual(<<"">>,
+                 Format([])),
+   ?_assertEqual(<<"A=1">>,
+                 Format([{<<"A">>, <<"1">>}])),
+   ?_assertEqual(<<"Foo=bar; Hello=world">>,
+                 Format([{<<"Foo">>, <<"bar">>},
+                         {<<"Hello">>, <<"world">>}]))].
+
+parse_pairs_test_() ->
+  Parse = fun mhttp_cookies:parse_pairs/1,
+  [?_assertEqual({ok, []},
+                 Parse(<<"">>)),
+   ?_assertEqual({ok, [{<<"A">>, <<"1">>}]},
+                 Parse(<<"A=1">>)),
+   ?_assertEqual({ok, [{<<"Foo">>, <<"bar">>}, {<<"Hello">>, <<"world">>}]},
+                 Parse(<<"Foo=bar; Hello=world">>))].

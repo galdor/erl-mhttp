@@ -1,6 +1,7 @@
 -module(mhttp_cookies).
 
--export([format/1, parse/1]).
+-export([format/1, parse/1,
+         format_pairs/1, parse_pairs/1]).
 
 -export_type([cookie/0, error_reason/0]).
 
@@ -16,6 +17,9 @@
           secure => boolean(),
           http_only => boolean(),
           extension => binary()}.
+
+-type cookie_pair() ::
+        {binary(), binary()}.
 
 -type error_reason() ::
         empty_name
@@ -183,6 +187,34 @@ validate_value_characters(<<C, Rest/binary>>) when
   validate_value_characters(Rest);
 validate_value_characters(<<C, _/binary>>) ->
   throw({error, {invalid_value_character, C}}).
+
+-spec format_pairs([cookie_pair()]) -> binary().
+format_pairs(Pairs) ->
+  Data = [[N, $=, V] || {N, V} <- Pairs],
+  iolist_to_binary(lists:join(<<"; ">>, Data)).
+
+-spec parse_pairs(binary()) -> {ok, [cookie_pair()]} | {error, error_reason()}.
+parse_pairs(Data) ->
+  try
+    {ok, parse_pairs_1(Data)}
+  catch
+    throw:{error, Reason} ->
+      {error, Reason}
+  end.
+
+-spec parse_pairs_1(binary()) -> [cookie_pair()].
+parse_pairs_1(<<>>) ->
+  [];
+parse_pairs_1(Data) ->
+  Parts = binary:split(Data, <<"; ">>, [global]),
+  lists:map(fun parse_pair/1, Parts).
+
+-spec parse_pair(binary()) -> cookie_pair().
+parse_pair(Data) ->
+  {Name, ValueData} = split2(Data, <<"=">>),
+  validate_name(Name),
+  Value = validate_value(ValueData),
+  {Name, Value}.
 
 -spec split2(Subject :: binary(), Separator) -> {binary(), binary()} when
     Separator :: binary() | [binary()] | binary:cp().
