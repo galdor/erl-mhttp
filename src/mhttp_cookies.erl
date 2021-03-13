@@ -1,6 +1,6 @@
 -module(mhttp_cookies).
 
--export([parse/1]).
+-export([format/1, parse/1]).
 
 -export_type([cookie/0, error_reason/0]).
 
@@ -26,6 +26,37 @@
       | {invalid_attribute, binary()}
       | empty_attribute
       | duplicate_extension.
+
+-spec format(cookie()) -> binary().
+format(Cookie = #{name := Name, value := Value}) ->
+  Attributes = maps:fold(fun format_attribute/3, [], Cookie),
+  Data = [Name, $=, Value,
+          [[<<"; ">>, Attribute] || Attribute <- Attributes]],
+  iolist_to_binary(Data).
+
+-spec format_attribute(atom(), term(), [iodata()]) -> [iodata()].
+format_attribute(name, _, Data) ->
+  Data;
+format_attribute(value, _, Data) ->
+  Data;
+format_attribute(expires, Datetime, Data) ->
+  [[<<"Expires=">>, mhttp_time:format_rfc1123_date(Datetime)] | Data];
+format_attribute(max_age, Age, Data) ->
+  [[<<"Max-Age=">>, integer_to_binary(Age)] | Data];
+format_attribute(domain, Domain, Data) ->
+  [[<<"Domain=">>, Domain] | Data];
+format_attribute(path, Path, Data) ->
+  [[<<"Path=">>, Path] | Data];
+format_attribute(secure, true, Data) ->
+  [<<"Secure">> | Data];
+format_attribute(secure, false, Data) ->
+  Data;
+format_attribute(http_only, true, Data) ->
+  [<<"HttpOnly">> | Data];
+format_attribute(http_only, false, Data) ->
+  Data;
+format_attribute(extension, Value, Data) ->
+  [Value | Data].
 
 -spec parse(binary()) -> {ok, cookie()}| {error, error_reason()}.
 parse(Data) ->

@@ -2,10 +2,36 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
+format_test_() ->
+  Format = fun mhttp_cookies:format/1,
+  [?_assertEqual(<<"Foo=bar">>,
+                 Format(#{name => <<"Foo">>, value => <<"bar">>})),
+   ?_assertEqual(<<"Foo=bar; Expires=Sun, 06 Nov 1994 08:49:37 GMT">>,
+                 Format(#{name => <<"Foo">>, value => <<"bar">>,
+                         expires => {{1994,11,6},{8,49,37}}})),
+   ?_assertEqual(<<"Foo=bar; Path=/; Domain=example.com">>,
+                 Format(#{name => <<"Foo">>, value => <<"bar">>,
+                          domain => <<"example.com">>, path => <<"/">>})),
+   ?_assertEqual(<<"Foo=bar%20baz"
+                   "; Secure",
+                   "; Path=/"
+                   "; Max-Age=3600"
+                   "; HttpOnly"
+                   "; Hello world!"
+                   "; Expires=Sun, 06 Nov 1994 08:49:37 GMT"
+                   "; Domain=example.com">>,
+                 Format(#{name => <<"Foo">>, value => <<"bar%20baz">>,
+                          expires => {{1994,11,6},{8,49,37}},
+                          max_age => 3600,
+                          domain => <<"example.com">>,
+                          path => <<"/">>,
+                          secure => true,
+                          http_only => true,
+                          extension => <<"Hello world!">>}))].
+
 parse_test_() ->
   Parse = fun mhttp_cookies:parse/1,
-  [
-   %% Name
+  [%% Name
    ?_assertEqual({error, empty_name},
                  Parse(<<"">>)),
    ?_assertEqual({error, empty_name},

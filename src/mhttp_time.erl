@@ -1,8 +1,19 @@
 -module(mhttp_time).
 
--export([parse_rfc1123_date/1,
+-export([format_rfc1123_date/1,
+         parse_rfc1123_date/1,
          parse_rfc1036_date/1,
          parse_asctime_date/1]).
+
+-spec format_rfc1123_date(calendar:datetime()) -> binary().
+format_rfc1123_date({Date = {Year, Month, Day}, {Hour, Minute, Second}}) ->
+  Weekday = calendar:day_of_the_week(Date),
+  WeekdayName = format_short_weekday(Weekday),
+  MonthName = format_short_month(Month),
+  Data = io_lib:format(<<"~s, ~2..0b ~s ~4..0b ~2..0b:~2..0b:~2..0b GMT">>,
+                       [WeekdayName, Day, MonthName, Year,
+                        Hour, Minute, Second]),
+  iolist_to_binary(Data).
 
 -spec parse_rfc1123_date(binary()) ->
         {ok, calendar:datetime()} | {error, invalid_format}.
@@ -81,6 +92,20 @@ parse_asctime_date(Data) ->
       {error, invalid_format}
   end.
 
+-spec format_short_month(1..12) -> binary().
+format_short_month(1) -> <<"Jan">>;
+format_short_month(2) -> <<"Feb">>;
+format_short_month(3) -> <<"Mar">>;
+format_short_month(4) -> <<"Apr">>;
+format_short_month(5) -> <<"May">>;
+format_short_month(6) -> <<"Jun">>;
+format_short_month(7) -> <<"Jul">>;
+format_short_month(8) -> <<"Aug">>;
+format_short_month(9) -> <<"Sep">>;
+format_short_month(10) -> <<"Oct">>;
+format_short_month(11) -> <<"Nov">>;
+format_short_month(12) -> <<"Dec">>.
+
 -spec parse_short_month(binary()) -> 1..12.
 parse_short_month(<<"Jan">>) -> 1;
 parse_short_month(<<"Feb">>) -> 2;
@@ -94,3 +119,12 @@ parse_short_month(<<"Sep">>) -> 9;
 parse_short_month(<<"Oct">>) -> 10;
 parse_short_month(<<"Nov">>) -> 11;
 parse_short_month(<<"Dec">>) -> 12.
+
+-spec format_short_weekday(1..7) -> binary().
+format_short_weekday(1) -> <<"Mon">>;
+format_short_weekday(2) -> <<"Tue">>;
+format_short_weekday(3) -> <<"Wed">>;
+format_short_weekday(4) -> <<"Thu">>;
+format_short_weekday(5) -> <<"Fri">>;
+format_short_weekday(6) -> <<"Sat">>;
+format_short_weekday(7) -> <<"Sun">>.
