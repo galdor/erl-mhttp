@@ -16,7 +16,7 @@
 
 -export([start_pool/2, send_request/1, send_request/2,
          start_server/2, set_server_router/2,
-         path_variable/2, request_id/1,
+         path_variable/2, request_id/1, route_id/1,
          header_name_equal/2,
          status/1]).
 
@@ -92,6 +92,7 @@
 -type handler_router_options() :: #{strip_path_prefix := binary()}.
 -type handler_context() :: #{client_address := inet:ip_address(),
                              client_port := inet:port_number(),
+                             route => route(),
                              path_variables => mhttp_patterns:path_variables(),
                              start_time := integer(),
                              request_id := binary()}.
@@ -140,11 +141,18 @@ path_variable(Name, #{path_variables := Variables}) ->
 request_id(#{request_id := RequestId}) ->
   RequestId.
 
+-spec route_id(handler_context()) -> binary().
+route_id(#{route := {route_not_found, _}}) ->
+  <<"route_not_found">>;
+route_id(#{route := {service_unavailable, _}}) ->
+  <<"service_unavailable">>;
+route_id(#{route := {Pattern, _}}) ->
+  mhttp_patterns:path_pattern(Pattern).
+
 -spec header_name_equal(header_name(), header_name()) -> boolean().
 header_name_equal(N1, N2) ->
   string:lowercase(N1) =:= string:lowercase(N2).
 
--spec status(status_name()) ->
-        mhttp:status().
+-spec status(status_name()) -> mhttp:status().
 status(Name) ->
   mhttp_statuses:status(Name).

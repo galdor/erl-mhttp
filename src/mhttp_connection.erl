@@ -142,7 +142,7 @@ find_and_call_route(#{options := Options}, Request, Context) ->
   case mhttp_server:find_route(ServerPid, Request, Context) of
     {ok, {_Router, Route, Context2}} ->
       try
-        call_route(Request, Context2, Route)
+        call_route(Request, Context2#{route => Route}, Route)
       catch
         error:Reason:Trace ->
           ?LOG_ERROR("request handling error: ~p~n~p", [Reason, Trace]),
