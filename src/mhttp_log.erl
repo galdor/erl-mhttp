@@ -25,8 +25,7 @@ log_incoming_request(Request, Response, Context, Server, Domain) ->
   Address = maps:get(client_address, Context),
   RequestId = maps:get(request_id, Context),
   Data = #{address => inet:ntoa(Address),
-           request_id => RequestId,
-           route_id => mhttp:route_id(Context)},
+           request_id => RequestId},
   Data2 = case Server of
             undefined -> Data;
             _ -> Data#{server => Server}
