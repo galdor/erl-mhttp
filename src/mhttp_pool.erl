@@ -226,7 +226,7 @@ request_target_and_key(Target, NetrcEntry) ->
 
 -spec netrc_entry(uri:host(), state()) -> netrc:entry() | undefined.
 netrc_entry(Host, #{options := Options}) ->
-  case maps:get(use_netrc, Options, true) of
+  case maps:get(use_netrc, Options, false) of
     true ->
       case mhttp_netrc:lookup(Host) of
         {ok, Entry} ->
