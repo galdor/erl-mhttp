@@ -126,16 +126,18 @@ handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
   {noreply, State}.
 
--spec get_or_create_client(state(), mhttp:client_key()) ->
+-spec get_or_create_client(state(), mhttp:client_key(),
+                           mhttp:credentials()) ->
         mhttp_client:ref().
 get_or_create_client(State = #{options := Options,
                                clients_by_key := ClientsByKey,
                                clients_by_pid := ClientsByPid},
-                     Key) ->
+                     Key,
+                     Credentials) ->
   MaxConns = maps:get(max_connections_per_key, Options, 1),
   case ets:lookup(ClientsByKey, Key) of
     Entries when length(Entries) < MaxConns ->
-      Pid = create_client(State, Key),
+      Pid = create_client(State, Key, Credentials),
       ets:insert(ClientsByKey, {Key, Pid}),
       ets:insert(ClientsByPid, {Pid, Key}),
       ?LOG_DEBUG("added new client ~p (~p)", [Key, Pid]),
@@ -145,10 +147,16 @@ get_or_create_client(State = #{options := Options,
       Pid
   end.
 
--spec create_client(state(), mhttp:client_key()) -> mhttp_client:ref().
-create_client(#{id := Id, options := Options}, {Host, Port, Transport}) ->
-  ClientOptions0 = maps:get(client_options, Options, #{}),
-  ClientOptions = ClientOptions0#{host => Host, port => Port,
+-spec create_client(state(), mhttp:client_key(), mhttp:credentials()) ->
+        mhttp_client:ref().
+create_client(#{id := Id, options := Options}, {Host, Port, Transport},
+              Credentials) ->
+  %% Note that credentials supplied in client options override internal
+  %% credentials (which are in the current state obtained from a netrc file).
+  ClientOptions0 = maps:merge(#{credentials => Credentials},
+                              maps:get(client_options, Options, #{})),
+  ClientOptions = ClientOptions0#{host => Host,
+                                  port => Port,
                                   transport => Transport,
                                   pool => Id},
   case mhttp_client:start_link(ClientOptions) of
@@ -176,9 +184,13 @@ delete_client(#{clients_by_key := ClientsByKey,
 do_send_request(_State, _Request, _Options, 0) ->
   throw({error, too_many_redirections});
 do_send_request(State, Request, Options, NbRedirectionsLeft) ->
-  {Target, Key} = request_target_and_key(Request, State),
-  Client = get_or_create_client(State, Key),
-  Request2 = Request#{target => Target},
+  Target = mhttp_request:target_uri(Request),
+  Host = mhttp_uri:host(Target),
+  NetrcEntry = netrc_entry(Host, State),
+  {Target2, Key} = request_target_and_key(Target, NetrcEntry),
+  Credentials = netrc_credentials(NetrcEntry),
+  Client = get_or_create_client(State, Key, Credentials),
+  Request2 = Request#{target => Target2},
   case mhttp_client:send_request(Client, Request2, Options) of
     {ok, Response} ->
       case maps:get(follow_redirections, Options, true) of
@@ -201,12 +213,10 @@ do_send_request(State, Request, Options, NbRedirectionsLeft) ->
       throw({error, Reason})
   end.
 
--spec request_target_and_key(mhttp:request(), state()) ->
+-spec request_target_and_key(uri:uri(), netrc:entry() | undefined) ->
         {mhttp:target(), mhttp:client_key()}.
-request_target_and_key(Request, State) ->
-  Target = mhttp_request:target_uri(Request),
+request_target_and_key(Target, NetrcEntry) ->
   Host = mhttp_uri:host(Target),
-  NetrcEntry = netrc_entry(Host, State),
   Port = request_port(Target, NetrcEntry),
   Transport = mhttp_uri:transport(Target),
   Key = {Host, Port, Transport},
@@ -227,6 +237,14 @@ netrc_entry(Host, #{options := Options}) ->
     false ->
       undefined
   end.
+
+-spec netrc_credentials(netrc:entry() | undefined) -> mhttp:credentials().
+netrc_credentials(undefined) ->
+  none;
+netrc_credentials(#{login := Login, password := Password}) ->
+  {basic, Login, Password};
+netrc_credentials(_) ->
+  none.
 
 -spec request_port(uri:uri(), netrc:entry() | undefined) -> uri:port_number().
 request_port(Target, undefined) ->

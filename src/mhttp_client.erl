@@ -39,6 +39,7 @@
                      header => mhttp:header(),
                      compression => boolean(),
                      log_requests => boolean(),
+                     credentials => mhttp:credentials(),
                      pool => mhttp:pool_id()}.
 
 -type tcp_option() :: gen_tcp:connect_option().
@@ -206,10 +207,44 @@ do_send_request(State, Request0, _RequestOptions) ->
 -spec finalize_request(state(), mhttp:request()) -> mhttp:request().
 finalize_request(#{options := Options}, Request) ->
   Funs = [compression_finalization_fun(Options),
+          credentials_finalization_fun(Options),
           header_finalization_fun(Options),
           host_finalization_fun(Options),
           fun mhttp_request:maybe_add_content_length/1],
   lists:foldl(fun (Fun, R) -> Fun(R) end, Request, Funs).
+
+-spec compression_finalization_fun(options()) ->
+        fun((mhttp:request()) -> mhttp:request()).
+compression_finalization_fun(Options) ->
+  fun (Request) ->
+      Header = mhttp_request:header(Request),
+      Header2 = case maps:get(compression, Options, false) of
+                 true ->
+                   mhttp_header:add(Header, <<"Accept-Encoding">>, <<"gzip">>);
+                  false ->
+                    Header
+                end,
+      Request#{header => Header2}
+  end.
+
+-spec credentials_finalization_fun(options()) ->
+        fun((mhttp:request()) -> mhttp:request()).
+credentials_finalization_fun(#{credentials := none}) ->
+  fun (Request) ->
+      Request
+  end;
+credentials_finalization_fun(#{credentials := {basic, Login, Password}}) ->
+  fun (Request) ->
+      Header = mhttp_request:header(Request),
+      Header2 = mhttp_header:add_basic_authorization(Header, Login, Password),
+      Request#{header => Header2}
+  end;
+credentials_finalization_fun(#{credentials := {bearer, Token}}) ->
+  fun (Request) ->
+      Header = mhttp_request:header(Request),
+      Header2 = mhttp_header:add_authorization(Header, <<"Bearer">>, Token),
+      Request#{header => Header2}
+  end.
 
 -spec header_finalization_fun(options()) ->
         fun((mhttp:request()) -> mhttp:request()).
@@ -227,20 +262,6 @@ host_finalization_fun(Options) ->
   Port = options_port(Options),
   fun (Request) ->
       mhttp_request:ensure_host(Request, Host, Port, Transport)
-  end.
-
--spec compression_finalization_fun(options()) ->
-        fun((mhttp:request()) -> mhttp:request()).
-compression_finalization_fun(Options) ->
-  fun (Request) ->
-      Header = mhttp_request:header(Request),
-      Header2 = case maps:get(compression, Options, false) of
-                 true ->
-                   mhttp_header:add(Header, <<"Accept-Encoding">>, <<"gzip">>);
-                  false ->
-                    Header
-                end,
-      Request#{header => Header2}
   end.
 
 -spec log_request(mhttp:request(), mhttp:response(), StartTime :: integer(),

@@ -229,8 +229,8 @@ add_authorization(Header, Type, Credentials) ->
   add(Header, <<"Authorization">>, Value).
 
 -spec add_basic_authorization(mhttp:header(),
-                              User :: binary(), Password :: binary()) ->
+                              Login :: binary(), Password :: binary()) ->
         mhttp:header().
-add_basic_authorization(Header, User, Password) ->
-  Credentials = base64:encode(<<User/binary, $:, Password/binary>>),
+add_basic_authorization(Header, Login, Password) ->
+  Credentials = base64:encode(<<Login/binary, $:, Password/binary>>),
   add_authorization(Header, <<"Basic">>, Credentials).

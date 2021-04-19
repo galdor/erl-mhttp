@@ -32,7 +32,8 @@
               route_pattern/0, route/0,
               handler_fun/0, handler/0,
               handler_router_options/0, handler_context/0,
-              error_handler/0]).
+              error_handler/0,
+              credentials/0]).
 
 -type pool_id() :: atom().
 -type server_id() :: atom().
@@ -100,6 +101,11 @@
 -type error_handler() :: fun((request(), handler_context(),
                               Reason :: term(), [et_erlang:stack_item()]) ->
                                 response()).
+
+-type credentials() ::
+        none
+      | {basic, Login :: binary(), Password :: binary()}
+      | {bearer, binary()}.
 
 -spec start_pool(pool_id(), mhttp_pool:options()) ->
         supervisor:startchild_ret().

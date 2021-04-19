@@ -67,9 +67,17 @@ The following client options are available:
 - `compression`: accept compressed responses and automatically decompress
   them. The only compression scheme currently supported is `gzip`.
 - `log_requests`: toggle request logging (default: `true`.
+- `credentials`: credentials to use for every request sent.
 
 For TLS connections, the client uses both the list of TCP options and the list
 of TLS options.
+
+### Credentials
+Credentials can be provided using one of the following forms:
+
+- `none`: no credentials will be used; this is the default value.
+- `{basic, Login, Password}`: requests will use basic authorization.
+- `{bearer, Token}`: requests will use an HTTP bearer token.
 
 # Pool
 A pool is a set of HTTP clients. Pools can send requests to any destination
