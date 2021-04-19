@@ -23,7 +23,9 @@
          transfer_encoding/1, content_encoding/1,
          has_connection_close/1,
          body/1,
-         set_cookies/1, cookies/1]).
+         set_cookies/1, cookies/1,
+         add_authorization/3,
+         add_basic_authorization/3]).
 
 -spec new() -> mhttp:header().
 new() ->
@@ -218,3 +220,17 @@ cookies(Header) ->
             end
         end,
   Fun(Values, []).
+
+-spec add_authorization(mhttp:header(),
+                        Type :: binary(), Credentials :: binary()) ->
+        mhttp:header().
+add_authorization(Header, Type, Credentials) ->
+  Value = <<Type/binary, $\s, Credentials/binary>>,
+  add(Header, <<"Authorization">>, Value).
+
+-spec add_basic_authorization(mhttp:header(),
+                              User :: binary(), Password :: binary()) ->
+        mhttp:header().
+add_basic_authorization(Header, User, Password) ->
+  Credentials = base64:encode(<<User/binary, $:, Password/binary>>),
+  add_authorization(Header, <<"Basic">>, Credentials).
