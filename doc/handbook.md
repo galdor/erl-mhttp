@@ -118,6 +118,8 @@ The following pool options are available:
   connection.
 - `max_connections_per_key`: the maximum number of connections established for
   each client key (default: `1`).
+- `use_netrc`: load and use credentials from the netrc file of the current
+  user.
 
 ## Usage
 The `pool` request option is used to select which pool will be used to send
