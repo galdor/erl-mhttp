@@ -28,7 +28,8 @@
 -type ref() :: et_gen_server:ref().
 
 -type options() :: #{client_options => mhttp_client:options(),
-                     max_connections_per_key => pos_integer()}.
+                     max_connections_per_key => pos_integer(),
+                     use_netrc => boolean()}.
 
 -type state() :: #{id := mhttp:pool_id(),
                    options := options(),
@@ -169,23 +170,13 @@ delete_client(#{clients_by_key := ClientsByKey,
       ok
   end.
 
--spec request_target_and_key(mhttp:request()) ->
-        {mhttp:target(), mhttp:client_key()}.
-request_target_and_key(Request) ->
-  Target = mhttp_request:target_uri(Request),
-  Key = {mhttp_uri:host(Target), mhttp_uri:port(Target),
-         mhttp_uri:transport(Target)},
-  Target2 = maps:without([scheme, userinfo, host, port], Target),
-  Target3 = Target2#{path => mhttp_uri:path(Target2)},
-  {Target3, Key}.
-
 -spec do_send_request(state(), mhttp:request(), mhttp:request_options(),
                       NbRedirectionsLeft :: non_neg_integer()) ->
         {state(), mhttp:response()}.
 do_send_request(_State, _Request, _Options, 0) ->
   throw({error, too_many_redirections});
 do_send_request(State, Request, Options, NbRedirectionsLeft) ->
-  {Target, Key} = request_target_and_key(Request),
+  {Target, Key} = request_target_and_key(Request, State),
   Client = get_or_create_client(State, Key),
   Request2 = Request#{target => Target},
   case mhttp_client:send_request(Client, Request2, Options) of
@@ -209,3 +200,53 @@ do_send_request(State, Request, Options, NbRedirectionsLeft) ->
     {error, Reason} ->
       throw({error, Reason})
   end.
+
+-spec request_target_and_key(mhttp:request(), state()) ->
+        {mhttp:target(), mhttp:client_key()}.
+request_target_and_key(Request, State) ->
+  Target = mhttp_request:target_uri(Request),
+  Host = mhttp_uri:host(Target),
+  NetrcEntry = netrc_entry(Host, State),
+  Port = request_port(Target, NetrcEntry),
+  Transport = mhttp_uri:transport(Target),
+  Key = {Host, Port, Transport},
+  Target2 = maps:without([scheme, userinfo, host, port], Target),
+  Target3 = Target2#{path => mhttp_uri:path(Target2)},
+  {Target3, Key}.
+
+-spec netrc_entry(uri:host(), state()) -> netrc:entry() | undefined.
+netrc_entry(Host, #{options := Options}) ->
+  case maps:get(use_netrc, Options, true) of
+    true ->
+      case mhttp_netrc:lookup(Host) of
+        {ok, Entry} ->
+          Entry;
+        error ->
+          undefined
+      end;
+    false ->
+      undefined
+  end.
+
+-spec request_port(uri:uri(), netrc:entry() | undefined) -> uri:port_number().
+request_port(Target, undefined) ->
+  mhttp_uri:port(Target);
+request_port(#{port := Port}, _) ->
+  %% Do not override an explicit port in the target URI even if there is a
+  %% matching netrc entry.
+  Port;
+request_port(_, #{port := Port}) when is_integer(Port) ->
+  Port;
+request_port(Target, #{port := Port}) when is_binary(Port) ->
+  case string:to_lower(binary_to_list(Port)) of
+    "http" ->
+      80;
+    "https" ->
+      443;
+    _ ->
+      ?LOG_WARNING("unknown port '~ts' for machine ~ts in netrc file",
+                   [Port, mhttp_uri:host(Target)]),
+      mhttp_uri:port(Target)
+  end;
+request_port(Target, _) ->
+  mhttp_uri:port(Target).

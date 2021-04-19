@@ -13,7 +13,7 @@
 %% IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 {application, mhttp,
- [{description, "HTTP implementation."},
+ [{description, "An implementation of the HTTP network protocol."},
   {vsn, "git"},
   {registered,
    [mhttp_sup,
@@ -27,7 +27,8 @@
     ssl,
     et,
     uri,
-    ksuid]},
+    ksuid,
+    netrc]},
   {env, []},
   {modules, []},
 
