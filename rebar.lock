@@ -8,7 +8,7 @@
   0},
  {<<"netrc">>,
   {git,"https://github.com/exograd/erl-netrc.git",
-       {ref,"284079c7cd61ab8f28f1224501ed19b62e5c37d3"}},
+       {ref,"28500f0552efec4907653f847dd54cb37ea00d3d"}},
   0},
  {<<"uri">>,
   {git,"https://github.com/galdor/erl-uri.git",
