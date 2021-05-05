@@ -192,7 +192,7 @@ set_cookies(Header) ->
   Values = find_all(Header, <<"Set-Cookie">>),
   Fun = fun
           F([], Cookies) ->
-            lists:reverse(Cookies);
+            {ok, lists:reverse(Cookies)};
           F([Value | Rest], Cookies) ->
             case mhttp_cookies:parse(Value) of
               {ok, Cookie} ->
@@ -210,7 +210,7 @@ cookies(Header) ->
   Values = find_all(Header, <<"Cookie">>),
   Fun = fun
           F([], Acc) ->
-            Acc;
+            {ok, Acc};
           F([Value | Rest], Acc) ->
             case mhttp_cookies:parse_pairs(Value) of
               {ok, Pairs} ->

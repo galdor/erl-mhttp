@@ -133,20 +133,21 @@ transfer_encoding_test_() ->
 
 set_cookies_test_() ->
   SetCookies = fun mhttp_header:set_cookies/1,
-  [?_assertEqual([],
+  [?_assertEqual({ok, []},
                  SetCookies([])),
-   ?_assertEqual([#{name => <<"Foo">>, value => <<"bar">>, secure => true},
-                  #{name => <<"Foo">>, value => <<"baz">>}],
+   ?_assertEqual({ok, [#{name => <<"Foo">>, value => <<"bar">>,
+                         secure => true},
+                       #{name => <<"Foo">>, value => <<"baz">>}]},
                  SetCookies([{<<"Set-Cookie">>, <<"Foo=bar; Secure">>},
                              {<<"Set-Cookie">>, <<"Foo=baz">>}]))].
 
 cookies_test_() ->
   Cookies = fun mhttp_header:cookies/1,
-  [?_assertEqual([],
+  [?_assertEqual({ok, []},
                  Cookies([])),
-   ?_assertEqual([{<<"Foo">>, <<"bar">>},
-                  {<<"A">>, <<"1">>},
-                  {<<"B">>, <<>>},
-                  {<<"C">>, <<"3">>}],
+   ?_assertEqual({ok, [{<<"Foo">>, <<"bar">>},
+                       {<<"A">>, <<"1">>},
+                       {<<"B">>, <<>>},
+                       {<<"C">>, <<"3">>}]},
                  Cookies([{<<"Cookie">>, <<"Foo=bar">>},
                           {<<"Cookie">>, <<"A=1; B=; C=3">>}]))].
