@@ -14,6 +14,7 @@ format_test_() ->
                           domain => <<"example.com">>, path => <<"/">>})),
    ?_assertEqual(<<"Foo=bar%20baz"
                    "; Secure",
+                   "; SameSite=Strict",
                    "; Path=/"
                    "; Max-Age=3600"
                    "; HttpOnly"
@@ -27,6 +28,7 @@ format_test_() ->
                           path => <<"/">>,
                           secure => true,
                           http_only => true,
+                          same_site => strict,
                           extension => <<"Hello world!">>}))].
 
 parse_test_() ->
@@ -133,6 +135,18 @@ parse_test_() ->
    ?_assertEqual({ok, #{name => <<"Foo">>, value => <<"bar">>,
                         http_only => true}},
                  Parse(<<"Foo=bar; HttpOnly">>)),
+   %% SameSite
+   ?_assertEqual({ok, #{name => <<"Foo">>, value => <<"bar">>,
+                        same_site => strict}},
+                 Parse(<<"Foo=bar; SameSite=Strict">>)),
+   ?_assertEqual({ok, #{name => <<"Foo">>, value => <<"bar">>,
+                        same_site => lax}},
+                 Parse(<<"Foo=bar; SameSite=Lax">>)),
+   ?_assertEqual({ok, #{name => <<"Foo">>, value => <<"bar">>,
+                        same_site => none}},
+                 Parse(<<"Foo=bar; SameSite=None">>)),
+   ?_assertEqual({error, {invalid_attribute, <<"SameSite">>}},
+                 Parse(<<"Foo=bar; SameSite=Hello">>)),
    %% Extension
    ?_assertEqual({error, duplicate_extension},
                  Parse(<<"Foo=bar; hello world; bye">>)),

@@ -3,9 +3,11 @@
 -export([format/1, parse/1,
          format_pairs/1, parse_pairs/1]).
 
--export_type([cookie/0, cookie_pair/0, error_reason/0]).
+-export_type([same_site/0, cookie/0, cookie_pair/0, error_reason/0]).
 
 %% Reference: RFC 6265.
+
+-type same_site() :: strict | lax | none.
 
 -type cookie() ::
         #{name := binary(),
@@ -16,6 +18,7 @@
           path => binary(),
           secure => boolean(),
           http_only => boolean(),
+          same_site => same_site(),
           extension => binary()}.
 
 -type cookie_pair() ::
@@ -59,6 +62,12 @@ format_attribute(http_only, true, Data) ->
   [<<"HttpOnly">> | Data];
 format_attribute(http_only, false, Data) ->
   Data;
+format_attribute(same_site, strict, Data) ->
+  [<<"SameSite=Strict">> | Data];
+format_attribute(same_site, lax, Data) ->
+  [<<"SameSite=Lax">> | Data];
+format_attribute(same_site, none, Data) ->
+  [<<"SameSite=None">> | Data];
 format_attribute(extension, Value, Data) ->
   [Value | Data].
 
@@ -132,6 +141,14 @@ parse_extension(<<"HttpOnly">>, #{http_only := _}) ->
   throw({error, {duplicate_attribute, <<"HttpOnly">>}});
 parse_extension(<<"HttpOnly">>, Cookie) ->
   Cookie#{http_only => true};
+parse_extension(<<"SameSite=Strict">>, Cookie) ->
+  Cookie#{same_site => strict};
+parse_extension(<<"SameSite=Lax">>, Cookie) ->
+  Cookie#{same_site => lax};
+parse_extension(<<"SameSite=None">>, Cookie) ->
+  Cookie#{same_site => none};
+parse_extension(<<"SameSite=", _/binary>>, Cookie) ->
+  throw({error, {invalid_attribute, <<"SameSite">>}});
 parse_extension(<<>>, _) ->
   throw({error, empty_attribute});
 parse_extension(_, #{extension := _}) ->
