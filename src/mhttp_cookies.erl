@@ -147,7 +147,7 @@ parse_extension(<<"SameSite=Lax">>, Cookie) ->
   Cookie#{same_site => lax};
 parse_extension(<<"SameSite=None">>, Cookie) ->
   Cookie#{same_site => none};
-parse_extension(<<"SameSite=", _/binary>>, Cookie) ->
+parse_extension(<<"SameSite=", _/binary>>, _Cookie) ->
   throw({error, {invalid_attribute, <<"SameSite">>}});
 parse_extension(<<>>, _) ->
   throw({error, empty_attribute});
