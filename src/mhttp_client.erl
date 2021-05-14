@@ -353,7 +353,14 @@ log_domain() ->
 
 -spec default_tls_options(options()) -> [tls_option()].
 default_tls_options(Options) ->
-  TLSOptions0 = [{verify, verify_peer}],
+  %% See https://github.com/benoitc/hackney/issues/624.
+  %%
+  %% It is infortunately impossible to trust Erlang/OTP regarding any default
+  %% setting.
+  HostnameCheck = [{match_fun,
+                    public_key:pkix_verify_hostname_match_fun(https)}],
+  TLSOptions0 = [{verify, verify_peer},
+                 {customize_hostname_check, HostnameCheck}],
   case maps:get(ca_certificate_bundle_path, Options, undefined) of
     undefined ->
       TLSOptions0;
