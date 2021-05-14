@@ -19,6 +19,8 @@
 client_test_() ->
   {setup,
    fun () ->
+       %% Application
+       {ok, _} = application:ensure_all_started(mhttp),
        %% Client pool
        {ok, _} = mhttp_pool:start_link(test, #{}),
        %% Server
@@ -37,7 +39,10 @@ client_test_() ->
    end,
    fun (Pid) ->
        inets:stop(httpd, Pid),
-       mhttp_pool:stop(test)
+       mhttp_pool:stop(test),
+       error_logger:tty(false),
+       application:stop(mhttp),
+       error_logger:tty(true)
    end,
    [fun simple_request/0,
     fun redirections/0]}.

@@ -40,6 +40,7 @@
                      compression => boolean(),
                      log_requests => boolean(),
                      credentials => mhttp:credentials(),
+                     ca_certificate_bundle_path => file:name_all() | undefined,
                      pool => mhttp:pool_id()}.
 
 -type tcp_option() :: gen_tcp:connect_option().
@@ -138,7 +139,10 @@ options_transport(Options) ->
 options_connect_options(Options = #{transport := tcp}) ->
   maps:get(tcp_options, Options, []);
 options_connect_options(Options = #{transport := tls}) ->
-  maps:get(tcp_options, Options, []) ++ maps:get(tls_options, Options, []).
+  TCPOptions = maps:get(tcp_options, Options, []),
+  TLSOptions = maps:get(tls_options, Options, []),
+  DefaultTLSOptions = default_tls_options(Options),
+  TCPOptions ++ TLSOptions ++ DefaultTLSOptions.
 
 -spec options_host(options()) -> binary().
 options_host(Options) ->
@@ -346,3 +350,13 @@ connection_needs_closing(Response) ->
 -spec log_domain() -> [atom()].
 log_domain() ->
   [mhttp, client].
+
+-spec default_tls_options(options()) -> [tls_option()].
+default_tls_options(Options) ->
+  TLSOptions0 = [{verify, verify_peer}],
+  case maps:get(ca_certificate_bundle_path, Options, undefined) of
+    undefined ->
+      TLSOptions0;
+    Path ->
+      [{cacertfile, Path} | TLSOptions0]
+  end.

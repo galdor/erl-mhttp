@@ -27,7 +27,8 @@ init() ->
       logger:warning("cannot locate ca certificate bundle, "
                      "tls connections will fail if peer verification is "
                      "enabled", [],
-                     #{domain => [mhttp, tls]})
+                     #{domain => [mhttp, tls]}),
+      persistent_term:put(mhttp_ca_certificate_bundle_path, undefined)
   end.
 
 -spec locate_ca_certificate_bundle() -> {ok, file:name_all()} | error.

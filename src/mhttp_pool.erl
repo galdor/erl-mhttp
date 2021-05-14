@@ -153,7 +153,11 @@ create_client(#{id := Id, options := Options}, {Host, Port, Transport},
               Credentials) ->
   %% Note that credentials supplied in client options override internal
   %% credentials (which are in the current state obtained from a netrc file).
-  ClientOptions0 = maps:merge(#{credentials => Credentials},
+  CACertificateBundlePath =
+    persistent_term:get(mhttp_ca_certificate_bundle_path),
+  ClientOptions0 = maps:merge(#{credentials => Credentials,
+                                ca_certificate_bundle_path =>
+                                  CACertificateBundlePath},
                               maps:get(client_options, Options, #{})),
   ClientOptions = ClientOptions0#{host => Host,
                                   port => Port,
