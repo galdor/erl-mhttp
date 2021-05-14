@@ -158,7 +158,7 @@ connect(Options) ->
   Host = options_host(Options),
   Port = options_port(Options),
   Timeout = maps:get(connection_timeout, Options, 5000),
-  RequiredConnectOptions = [{mode, binary}],
+  RequiredConnectOptions = [{mode, binary}, {log_level, error}],
   ConnectOptions = RequiredConnectOptions ++ options_connect_options(Options),
   ?LOG_DEBUG("connecting to ~s:~b", [Host, Port]),
   HostAddress = host_address(Host),
