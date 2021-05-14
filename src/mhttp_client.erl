@@ -158,7 +158,7 @@ connect(Options) ->
   Host = options_host(Options),
   Port = options_port(Options),
   Timeout = maps:get(connection_timeout, Options, 5000),
-  RequiredConnectOptions = [{mode, binary}, {log_level, error}],
+  RequiredConnectOptions = [{mode, binary}],
   ConnectOptions = RequiredConnectOptions ++ options_connect_options(Options),
   ?LOG_DEBUG("connecting to ~s:~b", [Host, Port]),
   HostAddress = host_address(Host),
@@ -359,7 +359,8 @@ default_tls_options(Options) ->
   %% setting.
   HostnameCheck = [{match_fun,
                     public_key:pkix_verify_hostname_match_fun(https)}],
-  TLSOptions0 = [{verify, verify_peer},
+  TLSOptions0 = [{log_level, error},
+                 {verify, verify_peer},
                  {customize_hostname_check, HostnameCheck}],
   case maps:get(ca_certificate_bundle_path, Options, undefined) of
     undefined ->
