@@ -18,10 +18,10 @@
          append/2,
          contains/2, find/2, find_all/2, find_all_concat/2, find_all_split/2,
          find_token_list/2,
-         add/3, add_field/2, add_if_missing/3, remove/2,
+         add/3, add_field/2, add_fields/2, add_if_missing/3, remove/2,
          content_length/1,
          transfer_encoding/1, content_encoding/1,
-         has_connection_close/1,
+         has_connection_close/1, has_connection_upgrade/1,
          body/1,
          set_cookies/1, cookies/1,
          add_authorization/3,
@@ -100,6 +100,12 @@ add(Header, Name, Value) ->
 add_field(Header, Field) ->
   [Field | Header].
 
+-spec add_fields(mhttp:header(), [mhttp:header_field()]) -> mhttp:header().
+add_fields(Header, Fields) ->
+  lists:foldl(fun (Field, Acc) ->
+                  [Field | Acc]
+              end, Header, Fields).
+
 -spec add_if_missing(mhttp:header(),
                      mhttp:header_name(), mhttp:header_value()) ->
         mhttp:header().
@@ -160,6 +166,12 @@ has_connection_close(Header) ->
   Values0 = mhttp_header:find_all_split(Header, <<"Connection">>),
   Values = lists:map(fun string:lowercase/1, Values0),
   lists:member(<<"close">>, Values).
+
+-spec has_connection_upgrade(mhttp:header()) -> boolean().
+has_connection_upgrade(Header) ->
+  Values0 = mhttp_header:find_all_split(Header, <<"Connection">>),
+  Values = lists:map(fun string:lowercase/1, Values0),
+  lists:member(<<"upgrade">>, Values).
 
 -spec body(mhttp:header()) -> {ok, Body} | {error, term()} when
     Body :: {fixed, pos_integer()} | chunked | none.

@@ -48,8 +48,9 @@
 
 -type state() :: #{options := options(),
                    transport := mhttp:transport(),
-                   socket := inet:socket() | ssl:sslsocket(),
-                   parser := mhttp_parser:parser()}.
+                   socket := mhttp:socket(),
+                   parser := mhttp_parser:parser(),
+                   upgraded => boolean()}.
 
 -spec start_link(options()) -> Result when
     Result :: {ok, pid()} | ignore | {error, term()}.
@@ -57,12 +58,14 @@ start_link(Options) ->
   gen_server:start_link(?MODULE, [Options], []).
 
 -spec send_request(ref(), mhttp:request()) ->
-        {mhttp:response()} | {error, term()}.
+        {ok, mhttp:response() | {upgraded, mhttp:response(), pid()}} |
+        {error, term()}.
 send_request(Ref, Request) ->
   send_request(Ref, Request, #{}).
 
 -spec send_request(ref(), mhttp:request(), mhttp:request_options()) ->
-        {ok, mhttp:response()} | {error, term()}.
+        {ok, mhttp:response() | {upgraded, mhttp:response(), pid()}} |
+        {error, term()}.
 send_request(Ref, Request, Options) ->
   gen_server:call(Ref, {send_request, Request, Options}, infinity).
 
@@ -77,27 +80,33 @@ init([Options]) ->
   end.
 
 -spec terminate(et_gen_server:terminate_reason(), state()) -> ok.
-terminate(_Reason, #{transport := tcp, socket := Socket}) ->
-  ?LOG_DEBUG("closing connection"),
-  gen_tcp:close(Socket),
-  ok;
-terminate(_Reason, #{transport := tls, socket := Socket}) ->
-  ?LOG_DEBUG("closing connection"),
-  ssl:close(Socket),
-  ok.
+terminate(_Reason, State = #{socket := Socket}) ->
+  case maps:get(upgraded, State, false) of
+    false ->
+      ?LOG_DEBUG("closing connection"),
+      case maps:get(transport, State) of
+        tcp -> gen_tcp:close(Socket);
+        tls -> ssl:close(Socket)
+      end,
+      ok;
+    true ->
+      ok
+  end.
 
 -spec handle_call(term(), {pid(), et_gen_server:request_id()}, state()) ->
         et_gen_server:handle_call_ret(state()).
 
 handle_call({send_request, Request, Options}, _From, State) ->
-  try
-    {State2, Response} = do_send_request(State, Request, Options),
-    case connection_needs_closing(Response) of
-      true ->
-        {stop, normal, {ok, Response}, State2};
-      false ->
-        {reply, {ok, Response}, State2}
-    end
+  try do_send_request(State, Request, Options) of
+    {response, Response, State2} ->
+      case connection_needs_closing(Response) of
+        true ->
+          {stop, normal, {ok, Response}, State2};
+        false ->
+          {reply, {ok, Response}, State2}
+      end;
+    {upgraded, Response, Pid, State2} ->
+      {stop, normal, {ok, {upgraded, Response, Pid}}, State2}
   catch
     throw:{error, Reason} ->
       {stop, normal, {error, Reason}, State}
@@ -197,25 +206,46 @@ host_address(Host) ->
   end.
 
 -spec do_send_request(state(), mhttp:request(), mhttp:request_options()) ->
-        {state(), mhttp:response()}.
-do_send_request(State, Request0, _RequestOptions) ->
+        {response, mhttp:response(), state()} |
+        {upgraded, mhttp:response(), pid(), state()}.
+do_send_request(State, Request0, RequestOptions) ->
   StartTime = erlang:system_time(microsecond),
-  Request = finalize_request(State, Request0),
+  Request = finalize_request(State, Request0, RequestOptions),
   send(State, mhttp_proto:encode_request(Request)),
   set_socket_active(State, false),
   {State2, Response} = read_response(State),
-  log_request(Request, Response, StartTime, State),
-  set_socket_active(State2, true),
-  {State2, Response}.
+  log_request(Request, Response, StartTime, State2),
+  case maybe_upgrade(Request, RequestOptions, Response, State2) of
+    {upgraded, Pid, State3} ->
+      {upgraded, Response, Pid, State3};
+    not_upgraded ->
+      set_socket_active(State2, true),
+      {response, Response, State2}
+  end.
 
--spec finalize_request(state(), mhttp:request()) -> mhttp:request().
-finalize_request(#{options := Options}, Request) ->
-  Funs = [compression_finalization_fun(Options),
+-spec finalize_request(state(), mhttp:request(), mhttp:request_options()) ->
+        mhttp:request().
+finalize_request(#{options := Options}, Request, RequestOptions) ->
+  Funs = [protocol_finalization_fun(RequestOptions),
+          compression_finalization_fun(Options),
           credentials_finalization_fun(Options),
           header_finalization_fun(Options),
           host_finalization_fun(Options),
           fun mhttp_request:maybe_add_content_length/1],
   lists:foldl(fun (Fun, R) -> Fun(R) end, Request, Funs).
+
+-spec protocol_finalization_fun(mhttp:request_options()) ->
+        fun((mhttp:request()) -> mhttp:request()).
+protocol_finalization_fun(RequestOptions) ->
+  fun (Request) ->
+      case maps:find(protocol, RequestOptions) of
+        {ok, Protocol} ->
+          ProtocolOptions = maps:get(protocol_options, RequestOptions, #{}),
+          Protocol:request(Request, ProtocolOptions);
+        error ->
+          Request
+      end
+  end.
 
 -spec compression_finalization_fun(options()) ->
         fun((mhttp:request()) -> mhttp:request()).
@@ -293,6 +323,34 @@ read_response(State = #{parser := Parser}) ->
       throw({error, {invalid_data, Reason}})
   end.
 
+-spec maybe_upgrade(mhttp:request(), mhttp:request_options(),
+                    mhttp:response(), state()) ->
+        {upgraded, pid(), state()} | not_upgraded.
+maybe_upgrade(Request, RequestOptions = #{protocol := Protocol},
+              Response = #{status := 101}, State = #{socket := Socket}) ->
+  Header = mhttp_response:header(Response),
+  case mhttp_header:has_connection_upgrade(Header) of
+    true ->
+      ?LOG_DEBUG("upgrading connection using protocol ~p", [Protocol]),
+      ProtocolOptions = maps:get(protocol_options, RequestOptions, #{}),
+      case Protocol:upgrade(Request, Response, ProtocolOptions) of
+        {ok, Pid} ->
+          set_controlling_process(State, Pid),
+          case Protocol:activate(Pid, Socket) of
+            ok ->
+              {upgraded, Pid, State#{upgraded => true}};
+            {error, Reason} ->
+              throw({error, {protocol_start_error, Reason}})
+          end;
+        {error, Reason} ->
+          throw({error, {protocol_upgrade_error, Reason}})
+      end;
+    false ->
+      not_upgraded
+  end;
+maybe_upgrade(_Request, _RequestOptions, _Response, _State) ->
+  not_upgraded.
+
 -spec set_socket_active(state(), boolean() | pos_integer()) -> ok.
 set_socket_active(#{transport := Transport, socket := Socket}, Active) ->
   Setopts = case Transport of
@@ -306,6 +364,19 @@ set_socket_active(#{transport := Transport, socket := Socket}, Active) ->
       throw({error, connection_closed});
     {error, Reason} ->
       throw({error, {setopts, Reason}})
+  end.
+
+-spec set_controlling_process(state(), pid()) -> ok.
+set_controlling_process(#{transport := Transport, socket := Socket}, Pid) ->
+  ControllingProcess = case Transport of
+                         tcp -> fun gen_tcp:controlling_process/2;
+                         tls -> fun ssl:controlling_process/2
+                       end,
+  case ControllingProcess(Socket, Pid) of
+    ok ->
+      ok;
+    {error, Reason} ->
+      throw({error, {controlling_process, Reason}})
   end.
 
 -spec send(state(), iodata()) -> ok.

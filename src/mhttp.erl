@@ -21,7 +21,7 @@
          status/1]).
 
 -export_type([pool_id/0, server_id/0,
-              transport/0,
+              transport/0, socket/0,
               client_key/0,
               request/0, request_options/0,
               response/0,
@@ -29,6 +29,7 @@
               method/0, target/0, version/0, status/0, status_name/0,
               header_name/0, header_value/0, header_field/0,
               header/0, body/0,
+              protocol/0, protocol_options/0,
               route_pattern/0, route/0,
               handler_fun/0, handler/0,
               handler_router_options/0, handler_context/0,
@@ -39,6 +40,8 @@
 -type server_id() :: atom().
 
 -type transport() :: tcp | tls.
+
+-type socket() :: inet:socket() | ssl:sslsocket().
 
 -type client_key() :: {uri:host(), uri:port_number(), transport()}.
 
@@ -52,7 +55,9 @@
 
 -type request_options() :: #{pool => pool_id(),
                              follow_redirections => boolean(),
-                             max_nb_redirections => pos_integer()}.
+                             max_nb_redirections => pos_integer(),
+                             protocol => protocol(),
+                             protocol_options => protocol_options()}.
 
 -type response() :: #{version => version(),
                       status := status(),
@@ -80,6 +85,9 @@
 -type header() :: [header_field()].
 
 -type body() :: iodata().
+
+-type protocol() :: module(). % behaviour: mhttp_protocol
+-type protocol_options() :: map().
 
 -type route_pattern() :: route_not_found
                        | service_unavailable
@@ -112,12 +120,13 @@
 start_pool(Id, Options) ->
   mhttp_pool_sup:start_pool(Id, Options).
 
--spec send_request(request()) -> {ok, response()} | {error, term()}.
+-spec send_request(request()) ->
+        {ok, response() | {upgraded, response(), pid()}} | {error, term()}.
 send_request(Request) ->
   send_request(Request, #{}).
 
 -spec send_request(request(), request_options()) ->
-        {ok, response()} | {error, term()}.
+        {ok, response() | {upgraded, response(), pid()}} | {error, term()}.
 send_request(Request, Options) ->
   PoolId = maps:get(pool, Options, default),
   PoolRef = mhttp_pool:process_name(PoolId),

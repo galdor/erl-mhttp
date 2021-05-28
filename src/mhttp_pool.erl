@@ -53,12 +53,14 @@ stop(Id) ->
   gen_server:stop(Name).
 
 -spec send_request(ref(), mhttp:request()) ->
-        {ok, mhttp:response()} | {error, term()}.
+        {ok, mhttp:response() | {upgraded, mhttp:response(), pid()}} |
+        {error, term()}.
 send_request(Ref, Request) ->
   send_request(Ref, Request, #{}).
 
 -spec send_request(ref(), mhttp:request(), mhttp:request_options()) ->
-        {ok, mhttp:response()} | {error, term()}.
+        {ok, mhttp:response() | {upgraded, mhttp:response(), pid()}} |
+        {error, term()}.
 send_request(Ref, Request, Options) ->
   gen_server:call(Ref, {send_request, Request, Options}, infinity).
 
@@ -92,9 +94,9 @@ handle_call({send_request, Request0, Options}, _From, State) ->
     {ok, Request} ->
       MaxNbRedirections = maps:get(max_nb_redirections, Options, 5),
       try
-        {State, Response} = do_send_request(State, Request, Options,
-                                            MaxNbRedirections),
-        {reply, {ok, Response}, State}
+        {State, Result} = do_send_request(State, Request, Options,
+                                          MaxNbRedirections),
+        {reply, {ok, Result}, State}
       catch
         throw:{error, Reason} ->
           {reply, {error, Reason}, State};
@@ -196,7 +198,7 @@ do_send_request(State, Request, Options, NbRedirectionsLeft) ->
   Client = get_or_create_client(State, Key, Credentials),
   Request2 = Request#{target => Target2},
   case mhttp_client:send_request(Client, Request2, Options) of
-    {ok, Response} ->
+    {ok, Response} when is_map(Response) ->
       case maps:get(follow_redirections, Options, true) of
         true ->
           case mhttp_response:is_redirection(Response) of
@@ -213,6 +215,8 @@ do_send_request(State, Request, Options, NbRedirectionsLeft) ->
         false ->
           {State, Response}
       end;
+    {ok, {upgraded, Response, Pid}} ->
+      {State, {upgraded, Response, Pid}};
     {error, Reason} ->
       throw({error, Reason})
   end.
