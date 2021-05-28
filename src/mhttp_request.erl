@@ -94,13 +94,17 @@ prepend_header(Request, Header) ->
 -spec ensure_host(mhttp:request(), uri:host(), uri:port_number(),
                   mhttp:transport()) ->
         mhttp:request().
-ensure_host(Request, Host, Port, Transport) ->
+ensure_host(Request, Host0, Port, Transport) ->
   %% We take care not to include the port in the value if this is the default
   %% port for the transport used; infortunately, some servers will respond
   %% with a Location header field based on the value of the Host header field
   %% without any host/port analysis. For example, GitHub will redirect a
   %% request for http://github.com with a Host header field set to
   %% "github.com:80" to "https://github.com:80/".
+  Host = case binary:match(Host0, <<":">>) of
+           nomatch -> Host0;
+           _ -> <<"[", Host0/binary, "]">>
+         end,
   Value = case {Transport, Port} of
             {tcp, 80} -> Host;
             {tls, 443} -> Host;
