@@ -20,7 +20,7 @@
 -export([connect/1, connect/2]).
 
 -export_type([protocol_options/0,
-              message/0, data_message/0, control_message/0, data_type/0,
+              message/0, data_type/0,
               close_status/0]).
 
 -type protocol_options() ::
@@ -28,14 +28,8 @@
           subprotocols => [binary()]}.
 
 -type message() ::
-        data_message()
-      | control_message().
-
--type data_message() ::
-        {data, data_type(), binary()}.
-
--type control_message() ::
-        {close, close_status()}
+        {data, data_type(), binary()}
+      | {close, close_status()}
       | {ping, binary()}
       | {pong, binary()}.
 
