@@ -26,7 +26,7 @@
 -type name() :: et_gen_server:name().
 -type ref() :: et_gen_server:ref().
 
--type options() :: #{}.
+-type options() :: #{ping_interval => pos_integer()}. % milliseconds
 
 -type state() :: #{options := options(),
                    transport => mhttp:transport(),
@@ -62,7 +62,7 @@ handle_call({activate, Socket, Transport, Data}, _From, State) ->
                     peer_port => Port,
                     parser => mhttp_websocket_parser:new()},
     set_socket_active(State2, true),
-    send_message({ping, <<"">>}, State2), %% test
+    schedule_send_ping(State2),
     self() ! {tcp, Socket, Data}, % this is one hell of an ugly hack
     {reply, ok, State2}
   catch
@@ -79,6 +79,16 @@ handle_cast(Msg, State) ->
   {noreply, State}.
 
 -spec handle_info(term(), state()) -> et_gen_server:handle_info_ret(state()).
+handle_info(send_ping, State) ->
+  try
+    send_message({ping, <<"">>}, State),
+    schedule_send_ping(State),
+    {noreply, State}
+  catch
+    throw:{error, Reason} ->
+      ?LOG_ERROR("cannot send ping: ~tp", [Reason]),
+      {stop, {error, Reason}, State}
+  end;
 handle_info({tcp, _Port, Data}, State = #{parser := Parser}) ->
   State2 = State#{parser => mhttp_websocket_parser:append_data(Parser, Data)},
   try
@@ -113,6 +123,11 @@ process_message(Message, State) ->
   %% TODO
   ?LOG_DEBUG("message: ~tp", [Message]),
   State.
+
+-spec schedule_send_ping(state()) -> ok.
+schedule_send_ping(#{options := Options}) ->
+  Interval = maps:get(ping_interval, Options, 10000),
+  erlang:send_after(Interval, self(), send_ping).
 
 -spec peername(mhttp:socket(), mhttp:transport()) ->
         {inet:ip_address(), inet:port_number()}.
