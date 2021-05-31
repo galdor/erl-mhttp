@@ -21,19 +21,21 @@
 -export([start/1]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
--export_type([name/0, ref/0, options/0]).
+-export_type([ref/0, options/0]).
 
--type name() :: et_gen_server:name().
 -type ref() :: et_gen_server:ref().
 
--type options() :: #{ping_interval => pos_integer()}. % milliseconds
+-type options() :: #{ping_interval => pos_integer(), % milliseconds
+                     ping_timeout => pos_integer()}. % milliseconds
 
 -type state() :: #{options := options(),
                    transport => mhttp:transport(),
                    socket => mhttp:socket(),
                    peer_address => inet:ip_address(),
                    peer_port => inet:port_number(),
-                   parser => mhttp_websocket_parser:parser()}.
+                   parser => mhttp_websocket_parser:parser(),
+                   ping_timer => reference(),
+                   ping_data => binary()}.
 
 -spec start(options()) -> Result when
     Result :: {ok, pid()} | ignore | {error, term()}.
@@ -67,7 +69,7 @@ handle_call({activate, Socket, Transport, Data}, _From, State) ->
     {reply, ok, State2}
   catch
     throw:{error, Reason} ->
-      {stop, {error, Reason}, {error, Reason}, State}
+      {stop, normal, {error, Reason}, State}
   end;
 handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),
@@ -79,24 +81,29 @@ handle_cast(Msg, State) ->
   {noreply, State}.
 
 -spec handle_info(term(), state()) -> et_gen_server:handle_info_ret(state()).
-handle_info(send_ping, State) ->
+handle_info(send_ping, State = #{options := Options}) ->
   try
-    send_message({ping, <<"">>}, State),
-    schedule_send_ping(State),
-    {noreply, State}
+    Data = integer_to_binary(os:system_time(millisecond)),
+    send_message({ping, Data}, State),
+    Timeout = maps:get(ping_timeout, Options, 10000),
+    Timer = erlang:send_after(Timeout, self(), ping_timeout),
+    {noreply, State#{ping_data => Data, ping_timer => Timer}}
   catch
     throw:{error, Reason} ->
       ?LOG_ERROR("cannot send ping: ~tp", [Reason]),
-      {stop, {error, Reason}, State}
+      {stop, normal, State}
   end;
+handle_info(ping_timeout, State) ->
+  ?LOG_ERROR("ping timeout"),
+  {stop, normal, State};
 handle_info({tcp, _Port, Data}, State = #{parser := Parser}) ->
   State2 = State#{parser => mhttp_websocket_parser:append_data(Parser, Data)},
   try
     {noreply, process_data(State2)}
   catch
     throw:{error, Reason} ->
-      ?LOG_ERROR("invalid data: ~tp", [Reason]),
-      {stop, {error, Reason}, State}
+      ?LOG_ERROR("error: ~tp", [Reason]),
+      {stop, normal, State}
   end;
 handle_info({tcp_closed, _Port}, State) ->
   ?LOG_DEBUG("connection closed"),
@@ -122,6 +129,20 @@ process_data(State = #{parser := Parser}) ->
 process_message({ping, Data}, State) ->
   send_message({pong, Data}, State),
   State;
+process_message({pong, Data}, State = #{ping_data := ExpectedData,
+                                        ping_timer := Timer}) ->
+  case Data =:= ExpectedData of
+    true ->
+      erlang:cancel_timer(Timer),
+      schedule_send_ping(State),
+      maps:without([ping_data, ping_timer], State);
+    false ->
+      ?LOG_WARNING("pong data mismatch"),
+      State
+  end;
+process_message({pong, _}, State) ->
+  ?LOG_WARNING("unexpected pong"),
+  State;
 process_message(Message, State) ->
   %% TODO
   ?LOG_DEBUG("message: ~tp", [Message]),
@@ -130,7 +151,8 @@ process_message(Message, State) ->
 -spec schedule_send_ping(state()) -> ok.
 schedule_send_ping(#{options := Options}) ->
   Interval = maps:get(ping_interval, Options, 10000),
-  erlang:send_after(Interval, self(), send_ping).
+  erlang:send_after(Interval, self(), send_ping),
+  ok.
 
 -spec peername(mhttp:socket(), mhttp:transport()) ->
         {inet:ip_address(), inet:port_number()}.
