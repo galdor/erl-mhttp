@@ -181,8 +181,15 @@ process_continuation_frame(_P) ->
         parse_result().
 process_data_frame(#{message := _}, _) ->
   throw({error, interleaved_data_frames});
-process_data_frame(P = #{frame := #{fin := FIN, payload_data := Data}},
+process_data_frame(P = #{frame :=
+                           (Frame = #{fin := FIN, payload_data := Data0})},
                    DataType) ->
+  Data = case Frame of
+           #{mask := 1, masking_key := Key} ->
+             mask(Data0, Key);
+           _ ->
+             Data0
+         end,
   Message = {data, DataType, Data},
   case FIN of
     1 ->
@@ -210,3 +217,19 @@ process_pong_frame(#{frame := #{fin := 0}}) ->
   throw({error, fragmented_control_frame});
 process_pong_frame(P = #{frame := #{payload_data := Data}}) ->
   {ok, {pong, Data}, P#{state => initial}}.
+
+-spec mask(binary(), <<_:32>>) -> binary().
+mask(Data, Key) ->
+  mask(Data, Key, <<>>).
+
+-spec mask(binary(), <<_:32>>, binary()) -> binary().
+mask(<<>>, _, Acc) ->
+  Acc;
+mask(<<V:32, Data/binary>>, Key = <<K:32>>, Acc) ->
+  mask(Data, Key, <<Acc/binary, (V bxor K):32>>);
+mask(<<V:24>>, <<Key:24, _:8>>, Acc) ->
+  <<Acc/binary, (V bxor Key):24>>;
+mask(<<V:16>>, <<Key:16, _:16>>, Acc) ->
+  <<Acc/binary, (V bxor Key):16>>;
+mask(<<V:8>>, <<Key:8, _:24>>, Acc) ->
+  <<Acc/binary, (V bxor Key):8>>.
