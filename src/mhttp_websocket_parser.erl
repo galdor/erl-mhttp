@@ -144,7 +144,13 @@ parse1(P = #{state := frame_payload_data,
              frame := (Frame = #{payload_length := Length}),
              data := Data}) ->
   case Data of
-    <<PayloadData:Length/binary, Rest/binary>> ->
+    <<PayloadData0:Length/binary, Rest/binary>> ->
+      PayloadData = case Frame of
+                      #{mask := 1, masking_key := Key} ->
+                        mask(PayloadData0, Key);
+                      _ ->
+                        PayloadData0
+                    end,
       parse1(P#{state => frame_end,
                 frame => Frame#{payload_data => PayloadData},
                 data => Rest});
@@ -182,15 +188,8 @@ process_continuation_frame(_P) ->
         parse_result().
 process_data_frame(#{message := _}, _) ->
   throw({error, interleaved_data_frames});
-process_data_frame(P = #{frame :=
-                           (Frame = #{fin := FIN, payload_data := Data0})},
+process_data_frame(P = #{frame := #{fin := FIN, payload_data := Data}},
                    DataType) ->
-  Data = case Frame of
-           #{mask := 1, masking_key := Key} ->
-             mask(Data0, Key);
-           _ ->
-             Data0
-         end,
   Message = {data, DataType, Data},
   case FIN of
     1 ->
