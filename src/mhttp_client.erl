@@ -169,7 +169,7 @@ connect(Options) ->
   Timeout = maps:get(connection_timeout, Options, 5000),
   RequiredConnectOptions = [{mode, binary}],
   ConnectOptions = RequiredConnectOptions ++ options_connect_options(Options),
-  ?LOG_DEBUG("connecting to ~s:~b", [Host, Port]),
+  ?LOG_DEBUG("connecting to ~s:~b (transport ~p)", [Host, Port, Transport]),
   HostAddress = host_address(Host),
   Connect = case Transport of
               tcp -> fun gen_tcp:connect/4;
