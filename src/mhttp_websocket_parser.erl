@@ -58,6 +58,7 @@
 -type parse_error_reason() ::
         {invalid_opcode, opcode()}
       | fragmented_control_frame
+      | {invalid_close_frame_payload, binary()}
       | invalid_continuation_frame
       | interleaved_data_frames.
 
@@ -203,8 +204,11 @@ process_data_frame(P = #{frame :=
 -spec process_close_frame(parser()) -> parse_result().
 process_close_frame(#{frame := #{fin := 0}}) ->
   throw({error, fragmented_control_frame});
-process_close_frame(P = #{frame := #{payload_data := Data}}) ->
-  {ok, {close, Data}, P#{state => initial}}.
+process_close_frame(P = #{frame :=
+                            #{payload_data := <<Status:16, Data/binary>>}}) ->
+  {ok, {close, Status, Data}, P#{state => initial}};
+process_close_frame(#{frame := #{payload_data := Data}}) ->
+  throw({error, {invalid_close_frame_payload, Data}}).
 
 -spec process_ping_frame(parser()) -> parse_result().
 process_ping_frame(#{frame := #{fin := 0}}) ->
