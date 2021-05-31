@@ -17,11 +17,11 @@
 -behaviour(mhttp_protocol).
 
 -export([request/2, upgrade/3, activate/4]).
--export([connect/1, connect/2]).
+-export([connect/1, connect/2, serialize/1, mask/2]).
 
 -export_type([protocol_options/0,
               message/0, data_type/0,
-              close_status/0]).
+              close_status/0, masking_key/0]).
 
 -type protocol_options() ::
         #{nonce := binary(),
@@ -29,13 +29,16 @@
 
 -type message() ::
         {data, data_type(), binary()}
-      | {close, close_status() | undefined, binary()}
+      | close
+      | {close, close_status(), binary()}
       | {ping, binary()}
       | {pong, binary()}.
 
 -type data_type() :: text | binary.
 
 -type close_status() :: 0..65535.
+
+-type masking_key() :: <<_:32>>.
 
 -spec request(mhttp:request(), protocol_options()) -> mhttp:request().
 request(Request, Options = #{nonce := Nonce}) ->
@@ -137,3 +140,53 @@ connect_1(Request, Options0) ->
     {error, Reason} ->
       {error, Reason}
   end.
+
+-spec serialize(message()) -> iodata().
+serialize({data, text, Data}) ->
+  serialize_frame(1, Data);
+serialize({data, binary, Data}) ->
+  serialize_frame(2, Data);
+serialize(close) ->
+  serialize_frame(8, <<"">>);
+serialize({close, Status, Data}) ->
+  serialize_frame(8, <<Status:16, Data/binary>>);
+serialize({ping, Data}) ->
+  serialize_frame(9, Data);
+serialize({pong, Data}) ->
+  serialize_frame(10, Data).
+
+-spec serialize_frame(Opcode :: 0..16, binary()) -> iodata().
+serialize_frame(Opcode, Data0) ->
+  MaskingKey = generate_masking_key(),
+  Data = mask(Data0, MaskingKey),
+  serialize_frame(Opcode, MaskingKey, Data, erlang:iolist_size(Data)).
+
+-spec serialize_frame(Opcode :: 0..16, masking_key(), iodata(),
+                      non_neg_integer()) ->
+        iodata().
+serialize_frame(Opcode, MaskingKey, Data, Length) when Length < 125 ->
+  [<<0:4, Opcode:4, 1:1, Length:7>>, MaskingKey, Data];
+serialize_frame(Opcode, MaskingKey, Data, Length) when Length < 16#ffff ->
+  [<<0:4, Opcode:4, 1:1, 126:7, Length:16>>, MaskingKey, Data];
+serialize_frame(Opcode, MaskingKey, Data, Length) ->
+  [<<0:4, Opcode:4, 1:1, 127:7, Length:64>>, MaskingKey, Data].
+
+-spec generate_masking_key() -> masking_key().
+generate_masking_key() ->
+  rand:bytes(4).
+
+-spec mask(binary(), masking_key()) -> binary().
+mask(Data, Key) ->
+  mask(Data, Key, <<>>).
+
+-spec mask(binary(), masking_key(), binary()) -> binary().
+mask(<<>>, _, Acc) ->
+  Acc;
+mask(<<V:32, Data/binary>>, Key = <<K:32>>, Acc) ->
+  mask(Data, Key, <<Acc/binary, (V bxor K):32>>);
+mask(<<V:24>>, <<Key:24, _:8>>, Acc) ->
+  <<Acc/binary, (V bxor Key):24>>;
+mask(<<V:16>>, <<Key:16, _:16>>, Acc) ->
+  <<Acc/binary, (V bxor Key):16>>;
+mask(<<V:8>>, <<Key:8, _:24>>, Acc) ->
+  <<Acc/binary, (V bxor Key):8>>.

@@ -59,7 +59,7 @@ parse_test_() ->
                      1:1, 0:3, 1:4, 0:1, 2:7, "de">>)),
    %% Valid control frames
    ?_assertMatch({ok, [{close, 42, <<"">>},
-                       {close, undefined, <<"">>},
+                       close,
                        {close, 0, <<"foo">>}],
                   _},
                  P(<<1:1, 0:3, 8:4, 0:1, 2:7, 42:16,

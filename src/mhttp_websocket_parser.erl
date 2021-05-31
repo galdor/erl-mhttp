@@ -28,7 +28,7 @@
           opcode := opcode(),
           mask => 0..1,
           payload_length => non_neg_integer(),
-          masking_key => <<_:32>>,
+          masking_key => mhttp_websocket:masking_key(),
           payload_data => binary()}.
 
 -type opcode() :: 0..15.
@@ -147,7 +147,7 @@ parse1(P = #{state := frame_payload_data,
     <<PayloadData0:Length/binary, Rest/binary>> ->
       PayloadData = case Frame of
                       #{mask := 1, masking_key := Key} ->
-                        mask(PayloadData0, Key);
+                        mhttp_websocket:mask(PayloadData0, Key);
                       _ ->
                         PayloadData0
                     end,
@@ -204,7 +204,7 @@ process_data_frame(P = #{frame := #{fin := FIN, payload_data := Data}},
 process_close_frame(#{frame := #{fin := 0}}) ->
   throw({error, fragmented_control_frame});
 process_close_frame(P = #{frame := #{payload_data := <<"">>}}) ->
-  {ok, {close, undefined, <<"">>}, P#{state => initial}};
+  {ok, close, P#{state => initial}};
 process_close_frame(P = #{frame :=
                             #{payload_data := <<Status:16, Data/binary>>}}) ->
   {ok, {close, Status, Data}, P#{state => initial}};
@@ -222,19 +222,3 @@ process_pong_frame(#{frame := #{fin := 0}}) ->
   throw({error, fragmented_control_frame});
 process_pong_frame(P = #{frame := #{payload_data := Data}}) ->
   {ok, {pong, Data}, P#{state => initial}}.
-
--spec mask(binary(), <<_:32>>) -> binary().
-mask(Data, Key) ->
-  mask(Data, Key, <<>>).
-
--spec mask(binary(), <<_:32>>, binary()) -> binary().
-mask(<<>>, _, Acc) ->
-  Acc;
-mask(<<V:32, Data/binary>>, Key = <<K:32>>, Acc) ->
-  mask(Data, Key, <<Acc/binary, (V bxor K):32>>);
-mask(<<V:24>>, <<Key:24, _:8>>, Acc) ->
-  <<Acc/binary, (V bxor Key):24>>;
-mask(<<V:16>>, <<Key:16, _:16>>, Acc) ->
-  <<Acc/binary, (V bxor Key):16>>;
-mask(<<V:8>>, <<Key:8, _:24>>, Acc) ->
-  <<Acc/binary, (V bxor Key):8>>.
