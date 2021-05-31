@@ -101,15 +101,18 @@ send_message(Message, State) ->
 
 -spec process_data(state()) -> state().
 process_data(State = #{parser := Parser}) ->
-  case mhttp_websocket_parser:parse(Parser) of
-    {ok, Message, Parser2} ->
-      ?LOG_DEBUG("message: ~tp", [Message]),
-      process_data(State#{parser => Parser2});
-    {more, Parser2} ->
-      State#{parser => Parser2};
+  case mhttp_websocket_parser:parse_all(Parser) of
+    {ok, Messages, Parser2} ->
+      lists:foldl(fun process_message/2, State#{parser => Parser2}, Messages);
     {error, Reason} ->
       throw({error, {invalid_data, Reason}})
   end.
+
+-spec process_message(mhttp_websocket:message(), state()) -> state().
+process_message(Message, State) ->
+  %% TODO
+  ?LOG_DEBUG("message: ~tp", [Message]),
+  State.
 
 -spec peername(mhttp:socket(), mhttp:transport()) ->
         {inet:ip_address(), inet:port_number()}.
