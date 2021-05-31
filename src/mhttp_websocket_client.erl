@@ -65,10 +65,11 @@ handle_call({activate, Socket, Transport, SocketData}, _From, State) ->
                     parser => Parser},
     State3 = process_data(State2),
     set_socket_active(State3, true),
+    send_message({ping, <<"">>}, State3), % XXX test
     {reply, ok, State3}
   catch
     throw:{error, Reason} ->
-      {stop, normal, {error, Reason}, State}
+      {stop, {error, Reason}, {error, Reason}, State}
   end;
 handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),
@@ -80,9 +81,25 @@ handle_cast(Msg, State) ->
   {noreply, State}.
 
 -spec handle_info(term(), state()) -> et_gen_server:handle_info_ret(state()).
+handle_info({tcp, _Port, Data}, State = #{parser := Parser}) ->
+  State2 = State#{parser => mhttp_websocket_parser:append_data(Parser, Data)},
+  try
+    {noreply, process_data(State2)}
+  catch
+    throw:{error, Reason} ->
+      ?LOG_ERROR("invalid data: ~tp", [Reason]),
+      {stop, {error, Reason}, State}
+  end;
+handle_info({tcp_closed, _Port}, State) ->
+  ?LOG_DEBUG("connection closed"),
+  {stop, normal, State};
 handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
   {noreply, State}.
+
+-spec send_message(mhttp_websocket:message(), state()) -> ok.
+send_message(Message, State) ->
+  send(mhttp_websocket:serialize(Message), State).
 
 -spec process_data(state()) -> state().
 process_data(State = #{parser := Parser}) ->
@@ -125,37 +142,19 @@ set_socket_active(#{transport := Transport, socket := Socket}, Active) ->
       throw({error, {setopts, Reason}})
   end.
 
-%% -spec send(state(), iodata()) -> ok.
-%% send(#{transport := Transport, socket := Socket}, Data) ->
-%%   Send = case Transport of
-%%           tcp -> fun gen_tcp:send/2;
-%%           tls -> fun ssl:send/2
-%%         end,
-%%   case Send(Socket, Data) of
-%%     ok ->
-%%       ok;
-%%     {error, closed} ->
-%%       throw({error, connection_closed});
-%%     {error, timeout} ->
-%%       throw({error, write_timeout});
-%%     {error, Reason} ->
-%%       throw({error, {send, Reason}})
-%%   end.
-
-%% -spec recv(state(), non_neg_integer()) -> binary().
-%% recv(#{options := Options, transport := Transport, socket := Socket}, N) ->
-%%   Recv = case Transport of
-%%           tcp -> fun gen_tcp:recv/3;
-%%           tls -> fun ssl:recv/3
-%%         end,
-%%   Timeout = maps:get(read_timeout, Options, 30_000),
-%%   case Recv(Socket, N, Timeout) of
-%%     {ok, Data} ->
-%%       Data;
-%%     {error, closed} ->
-%%       throw({error, connection_closed});
-%%     {error, timeout} ->
-%%       throw({error, read_timeout});
-%%     {error, Reason} ->
-%%       throw({error, {recv, Reason}})
-%%   end.
+-spec send(iodata(), state()) -> ok.
+send(Data, #{transport := Transport, socket := Socket}) ->
+  Send = case Transport of
+          tcp -> fun gen_tcp:send/2;
+          tls -> fun ssl:send/2
+        end,
+  case Send(Socket, Data) of
+    ok ->
+      ok;
+    {error, closed} ->
+      throw({error, connection_closed});
+    {error, timeout} ->
+      throw({error, write_timeout});
+    {error, Reason} ->
+      throw({error, {send, Reason}})
+  end.
