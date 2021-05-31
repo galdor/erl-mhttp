@@ -165,11 +165,11 @@ serialize_frame(Opcode, Data0) ->
                       non_neg_integer()) ->
         iodata().
 serialize_frame(Opcode, MaskingKey, Data, Length) when Length < 125 ->
-  [<<0:4, Opcode:4, 1:1, Length:7>>, MaskingKey, Data];
+  [<<1:1, 0:3, Opcode:4, 1:1, Length:7>>, MaskingKey, Data];
 serialize_frame(Opcode, MaskingKey, Data, Length) when Length < 16#ffff ->
-  [<<0:4, Opcode:4, 1:1, 126:7, Length:16>>, MaskingKey, Data];
+  [<<1:1, 0:3, Opcode:4, 1:1, 126:7, Length:16>>, MaskingKey, Data];
 serialize_frame(Opcode, MaskingKey, Data, Length) ->
-  [<<0:4, Opcode:4, 1:1, 127:7, Length:64>>, MaskingKey, Data].
+  [<<1:1, 0:3, Opcode:4, 1:1, 127:7, Length:64>>, MaskingKey, Data].
 
 -spec generate_masking_key() -> masking_key().
 generate_masking_key() ->
