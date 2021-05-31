@@ -29,7 +29,7 @@
 
 -type message() ::
         {data, data_type(), binary()}
-      | {close, close_status(), binary()}
+      | {close, close_status() | undefined, binary()}
       | {ping, binary()}
       | {pong, binary()}.
 

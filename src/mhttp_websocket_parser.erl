@@ -204,6 +204,8 @@ process_data_frame(P = #{frame :=
 -spec process_close_frame(parser()) -> parse_result().
 process_close_frame(#{frame := #{fin := 0}}) ->
   throw({error, fragmented_control_frame});
+process_close_frame(P = #{frame := #{payload_data := <<"">>}}) ->
+  {ok, {close, undefined, <<"">>}, P#{state => initial}};
 process_close_frame(P = #{frame :=
                             #{payload_data := <<Status:16, Data/binary>>}}) ->
   {ok, {close, Status, Data}, P#{state => initial}};
