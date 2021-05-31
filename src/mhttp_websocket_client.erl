@@ -52,21 +52,19 @@ terminate(_Reason, _State) ->
 
 -spec handle_call(term(), {pid(), et_gen_server:request_id()}, state()) ->
         et_gen_server:handle_call_ret(state()).
-handle_call({activate, Socket, Transport, SocketData}, _From, State) ->
+handle_call({activate, Socket, Transport, Data}, _From, State) ->
   try
     {Address, Port} = peername(Socket, Transport),
     ?LOG_DEBUG("connected to ~s:~b", [inet:ntoa(Address), Port]),
-    Parser0 = mhttp_websocket_parser:new(),
-    Parser = mhttp_websocket_parser:append_data(Parser0, SocketData),
     State2 = State#{transport => Transport,
                     socket => Socket,
                     peer_address => Address,
                     peer_port => Port,
-                    parser => Parser},
-    State3 = process_data(State2),
-    set_socket_active(State3, true),
-    send_message({ping, <<"">>}, State3), % XXX test
-    {reply, ok, State3}
+                    parser => mhttp_websocket_parser:new()},
+    set_socket_active(State2, true),
+    send_message({ping, <<"">>}, State2), %% test
+    self() ! {tcp, Socket, Data}, % this is one hell of an ugly hack
+    {reply, ok, State2}
   catch
     throw:{error, Reason} ->
       {stop, {error, Reason}, {error, Reason}, State}
