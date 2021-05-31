@@ -21,5 +21,5 @@
                   mhttp:protocol_options()) ->
   {ok, pid()} | {error, term()}.
 
--callback activate(pid(), mhttp:socket()) ->
+-callback activate(pid(), mhttp:socket(), mhttp:protocol(), binary()) ->
   ok | {error, term()}.

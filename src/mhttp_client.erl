@@ -327,7 +327,9 @@ read_response(State = #{parser := Parser}) ->
                     mhttp:response(), state()) ->
         {upgraded, pid(), state()} | not_upgraded.
 maybe_upgrade(Request, RequestOptions = #{protocol := Protocol},
-              Response = #{status := 101}, State = #{socket := Socket}) ->
+              Response = #{status := 101},
+              State = #{socket := Socket, transport := Transport,
+                        parser := #{data := SocketData}}) ->
   Header = mhttp_response:header(Response),
   case mhttp_header:has_connection_upgrade(Header) of
     true ->
@@ -336,14 +338,14 @@ maybe_upgrade(Request, RequestOptions = #{protocol := Protocol},
       case Protocol:upgrade(Request, Response, ProtocolOptions) of
         {ok, Pid} ->
           set_controlling_process(State, Pid),
-          case Protocol:activate(Pid, Socket) of
+          case Protocol:activate(Pid, Socket, Transport, SocketData) of
             ok ->
               {upgraded, Pid, State#{upgraded => true}};
             {error, Reason} ->
-              throw({error, {protocol_start_error, Reason}})
+              throw({error, Reason})
           end;
         {error, Reason} ->
-          throw({error, {protocol_upgrade_error, Reason}})
+          throw({error, Reason})
       end;
     false ->
       not_upgraded
