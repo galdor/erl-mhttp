@@ -119,6 +119,9 @@ process_data(State = #{parser := Parser}) ->
   end.
 
 -spec process_message(mhttp_websocket:message(), state()) -> state().
+process_message({ping, Data}, State) ->
+  send_message({pong, Data}, State),
+  State;
 process_message(Message, State) ->
   %% TODO
   ?LOG_DEBUG("message: ~tp", [Message]),
