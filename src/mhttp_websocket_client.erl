@@ -56,14 +56,16 @@ handle_call({activate, Socket, Transport, SocketData}, _From, State) ->
   try
     {Address, Port} = peername(Socket, Transport),
     ?LOG_DEBUG("connected to ~s:~b", [inet:ntoa(Address), Port]),
-    Parser = mhttp_websocket_parser:new(SocketData),
+    Parser0 = mhttp_websocket_parser:new(),
+    Parser = mhttp_websocket_parser:append_data(Parser0, SocketData),
     State2 = State#{transport => Transport,
                     socket => Socket,
                     peer_address => Address,
                     peer_port => Port,
                     parser => Parser},
-    set_socket_active(State2, true),
-    {reply, ok, State2}
+    State3 = process_data(State2),
+    set_socket_active(State3, true),
+    {reply, ok, State3}
   catch
     throw:{error, Reason} ->
       {stop, normal, {error, Reason}, State}
@@ -81,6 +83,18 @@ handle_cast(Msg, State) ->
 handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
   {noreply, State}.
+
+-spec process_data(state()) -> state().
+process_data(State = #{parser := Parser}) ->
+  case mhttp_websocket_parser:parse(Parser) of
+    {ok, Message, Parser2} ->
+      ?LOG_DEBUG("message: ~tp", [Message]),
+      process_data(State#{parser => Parser2});
+    {more, Parser2} ->
+      State#{parser => Parser2};
+    {error, Reason} ->
+      throw({error, {invalid_data, Reason}})
+  end.
 
 -spec peername(mhttp:socket(), mhttp:transport()) ->
         {inet:ip_address(), inet:port_number()}.
