@@ -18,7 +18,7 @@
 
 -behaviour(gen_server).
 
--export([start/1]).
+-export([start/1, send_message/2]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
 -export_type([ref/0, options/0]).
@@ -41,6 +41,10 @@
     Result :: {ok, pid()} | ignore | {error, term()}.
 start(Options) ->
   gen_server:start(?MODULE, [Options], []).
+
+-spec send_message(ref(), mhttp_websocket:message()) -> ok | {error, term()}.
+send_message(Ref, Message) ->
+  gen_server:call(Ref, {send_message, Message}, infinity).
 
 -spec init(list()) -> et_gen_server:init_ret(state()).
 init([Options]) ->
@@ -71,6 +75,14 @@ handle_call({activate, Socket, Transport, Data}, _From, State) ->
     throw:{error, Reason} ->
       {stop, normal, {error, Reason}, State}
   end;
+handle_call({send_message, Message}, _From, State) ->
+  try
+    do_send_message(Message, State),
+    {reply, ok, State}
+  catch
+    throw:{error, Reason} ->
+      {reply, {error, Reason}, State}
+  end;
 handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),
   {reply, unhandled, State}.
@@ -84,7 +96,7 @@ handle_cast(Msg, State) ->
 handle_info(send_ping, State = #{options := Options}) ->
   try
     Data = integer_to_binary(os:system_time(millisecond)),
-    send_message({ping, Data}, State),
+    do_send_message({ping, Data}, State),
     Timeout = maps:get(ping_timeout, Options, 10000),
     Timer = erlang:send_after(Timeout, self(), ping_timeout),
     {noreply, State#{ping_data => Data, ping_timer => Timer}}
@@ -112,8 +124,8 @@ handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
   {noreply, State}.
 
--spec send_message(mhttp_websocket:message(), state()) -> ok.
-send_message(Message, State) ->
+-spec do_send_message(mhttp_websocket:message(), state()) -> ok.
+do_send_message(Message, State) ->
   send(mhttp_websocket:serialize(Message), State).
 
 -spec process_data(state()) -> state().
@@ -127,7 +139,7 @@ process_data(State = #{parser := Parser}) ->
 
 -spec process_message(mhttp_websocket:message(), state()) -> state().
 process_message({ping, Data}, State) ->
-  send_message({pong, Data}, State),
+  do_send_message({pong, Data}, State),
   State;
 process_message({pong, Data}, State = #{ping_data := ExpectedData,
                                         ping_timer := Timer}) ->
