@@ -122,6 +122,8 @@ connect(Request, Options) ->
     <<"wss">> ->
       Target2 = Target#{scheme => <<"https">>},
       connect_1(Request#{method => <<"GET">>, target => Target2}, Options);
+    _ when Scheme =:= <<"http">>; Scheme =:= <<"https">> ->
+      connect_1(Request#{method => <<"GET">>}, Options);
     InvalidScheme ->
       {error, {websocket, {invalid_scheme, InvalidScheme}}}
   end.
