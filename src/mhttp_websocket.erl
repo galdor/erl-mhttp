@@ -19,11 +19,11 @@
 -export([request/2, upgrade/3, activate/4]).
 -export([connect/1, connect/2, serialize/1, mask/2]).
 
--export_type([protocol_options/0,
+-export_type([options/0,
               message/0, data_type/0,
-              close_status/0, masking_key/0]).
+              status/0, masking_key/0]).
 
--type protocol_options() ::
+-type options() ::
         #{nonce := binary(),
           subprotocols => [binary()],
           client_options => mhttp_websocket_client:options()}.
@@ -31,17 +31,17 @@
 -type message() ::
         {data, data_type(), binary()}
       | close
-      | {close, close_status(), binary()}
+      | {close, status(), binary()}
       | {ping, binary()}
       | {pong, binary()}.
 
 -type data_type() :: text | binary.
 
--type close_status() :: 0..65535.
+-type status() :: 0..65535.
 
 -type masking_key() :: <<_:32>>.
 
--spec request(mhttp:request(), protocol_options()) -> mhttp:request().
+-spec request(mhttp:request(), options()) -> mhttp:request().
 request(Request, Options = #{nonce := Nonce}) ->
   %% Note that while RFC 6455 indicates that the "upgrade" connection value is
   %% case-insensitive, some implementations (I am looking at you, Ruby's
@@ -62,10 +62,10 @@ request(Request, Options = #{nonce := Nonce}) ->
   Header2 = mhttp_header:add_fields(Header, Fields),
   Request#{header => Header2}.
 
--spec upgrade(mhttp:request(), mhttp:response(), protocol_options()) ->
+-spec upgrade(mhttp:request(), mhttp:response(), options()) ->
         {ok, pid()} | {error, term()}.
-upgrade(_Request, Response, ProtocolOptions = #{nonce := Nonce}) ->
-  ClientOptions = maps:get(client_options, ProtocolOptions, #{}),
+upgrade(_Request, Response, Options = #{nonce := Nonce}) ->
+  ClientOptions = maps:get(client_options, Options, #{}),
   case validate_response(Response, Nonce) of
     ok ->
       case mhttp_websocket_client_sup:start_client(ClientOptions) of
