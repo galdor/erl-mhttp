@@ -76,7 +76,12 @@ handle_call({activate, Socket, Transport, Data}, _From, State) ->
                   parser => mhttp_websocket_parser:new()},
   set_socket_active(State2, true),
   schedule_send_ping(State2),
-  self() ! {tcp, Socket, Data}, % this is one hell of an ugly hack
+  %% Data coming from the parser buffer of the http connection must be
+  %% reinjected. It is one hell of a hack.
+  case Transport of
+    tcp -> self() ! {tcp, Socket, Data};
+    tls -> self() ! {ssl, Socket, Data}
+  end,
   send_event(connected, State2),
   {reply, ok, State2};
 handle_call({send_message, Message}, _From, State) ->
@@ -101,7 +106,8 @@ handle_info(send_ping, State = #{options := Options}) ->
 handle_info(ping_timeout, State) ->
   ?LOG_ERROR("ping timeout"),
   {stop, normal, State};
-handle_info({tcp, _Port, Data}, State = #{parser := Parser}) ->
+handle_info({Event, _Port, Data}, State = #{parser := Parser}) when
+    Event =:= tcp; Event =:= ssl ->
   State2 = State#{parser => mhttp_websocket_parser:append_data(Parser, Data)},
   case process_data(State2) of
     {ok, State3} ->
@@ -113,7 +119,8 @@ handle_info({tcp, _Port, Data}, State = #{parser := Parser}) ->
       ?LOG_ERROR("~tp", [Reason]),
       {stop, Reason, State3}
   end;
-handle_info({tcp_closed, _Port}, State) ->
+handle_info({Event, _Port}, State) when
+    Event =:= tcp_closed; Event =:= ssl_closed ->
   ?LOG_DEBUG("connection closed"),
   {stop, normal, State};
 handle_info(Msg, State) ->
