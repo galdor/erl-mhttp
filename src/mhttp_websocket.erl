@@ -25,7 +25,8 @@
 
 -type protocol_options() ::
         #{nonce := binary(),
-          subprotocols => [binary()]}.
+          subprotocols => [binary()],
+          client_options => mhttp_websocket_client:options()}.
 
 -type message() ::
         {data, data_type(), binary()}
@@ -63,11 +64,12 @@ request(Request, Options = #{nonce := Nonce}) ->
 
 -spec upgrade(mhttp:request(), mhttp:response(), protocol_options()) ->
         {ok, pid()} | {error, term()}.
-upgrade(_Request, Response, #{nonce := Nonce}) ->
+upgrade(_Request, Response, ProtocolOptions = #{nonce := Nonce}) ->
+  ClientOptions = maps:get(client_options, ProtocolOptions, #{}),
   case validate_response(Response, Nonce) of
     ok ->
       %% TODO websocket supervisor
-      case mhttp_websocket_client:start(#{}) of
+      case mhttp_websocket_client:start(ClientOptions) of
         {ok, Pid} ->
           {ok, Pid};
         {error, Reason} ->
