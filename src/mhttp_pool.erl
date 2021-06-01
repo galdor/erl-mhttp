@@ -118,12 +118,13 @@ handle_cast(Msg, State) ->
   {noreply, State}.
 
 -spec handle_info(term(), state()) -> et_gen_server:handle_info_ret(state()).
-
-handle_info({'EXIT', Pid, Reason}, State) ->
-  ?LOG_DEBUG("client ~p exited (~p)", [Pid, Reason]),
+handle_info({'EXIT', Pid, normal}, State) ->
   delete_client(State, Pid),
   {noreply, State};
-
+handle_info({'EXIT', Pid, Reason}, State) ->
+  ?LOG_DEBUG("client ~p exited:~n~tp", [Pid, Reason]),
+  delete_client(State, Pid),
+  {noreply, State};
 handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
   {noreply, State}.
