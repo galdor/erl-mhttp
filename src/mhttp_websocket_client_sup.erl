@@ -18,7 +18,7 @@
 
 -behaviour(gen_server).
 
--export([start_link/1]).
+-export([start_link/1, start_client/1]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
 -export_type([ref/0, options/0]).
@@ -34,9 +34,15 @@
 start_link(Options) ->
   gen_server:start_link({local, ?MODULE}, ?MODULE, [Options], []).
 
+-spec start_client(mhttp_websocket_client:options()) -> Result when
+    Result :: {ok, pid()} | {error, term()}.
+start_client(Options) ->
+  gen_server:call(?MODULE, {start_client, Options}, infinity).
+
 -spec init(list()) -> et_gen_server:init_ret(state()).
 init([Options]) ->
   logger:update_process_metadata(#{domain => [mhttp, websocket_client_sup]}),
+  process_flag(trap_exit, true),
   State = #{options => Options},
   {ok, State}.
 
@@ -46,6 +52,14 @@ terminate(_Reason, _State) ->
 
 -spec handle_call(term(), {pid(), et_gen_server:request_id()}, state()) ->
         et_gen_server:handle_call_ret(state()).
+handle_call({start_client, Options}, _From, State) ->
+  case mhttp_websocket_client:start_link(Options) of
+    {ok, Pid} ->
+      ?LOG_DEBUG("client ~p started", [Pid]),
+      {reply, {ok, Pid}, State};
+    {error, Reason} ->
+      {reply, {error, Reason}, State}
+  end;
 handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),
   {reply, unhandled, State}.
@@ -56,6 +70,11 @@ handle_cast(Msg, State) ->
   {noreply, State}.
 
 -spec handle_info(term(), state()) -> et_gen_server:handle_info_ret(state()).
+handle_info({'EXIT', _Pid, normal}, State) ->
+  {noreply, State};
+handle_info({'EXIT', Pid, Reason}, State) ->
+  ?LOG_ERROR("client ~p exited: ~tp", [Pid, Reason]),
+  {noreply, State};
 handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
   {noreply, State}.

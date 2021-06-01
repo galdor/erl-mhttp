@@ -68,8 +68,7 @@ upgrade(_Request, Response, ProtocolOptions = #{nonce := Nonce}) ->
   ClientOptions = maps:get(client_options, ProtocolOptions, #{}),
   case validate_response(Response, Nonce) of
     ok ->
-      %% TODO websocket supervisor
-      case mhttp_websocket_client:start(ClientOptions) of
+      case mhttp_websocket_client_sup:start_client(ClientOptions) of
         {ok, Pid} ->
           {ok, Pid};
         {error, Reason} ->

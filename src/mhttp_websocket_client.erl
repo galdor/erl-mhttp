@@ -18,7 +18,7 @@
 
 -behaviour(gen_server).
 
--export([start/1, send_message/2]).
+-export([start_link/1, send_message/2]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
 -export_type([ref/0, options/0]).
@@ -37,10 +37,10 @@
                    ping_timer => reference(),
                    ping_data => binary()}.
 
--spec start(options()) -> Result when
+-spec start_link(options()) -> Result when
     Result :: {ok, pid()} | ignore | {error, term()}.
-start(Options) ->
-  gen_server:start(?MODULE, [Options], []).
+start_link(Options) ->
+  gen_server:start_link(?MODULE, [Options], []).
 
 -spec send_message(ref(), mhttp_websocket:message()) -> ok | {error, term()}.
 send_message(Ref, Message) ->
