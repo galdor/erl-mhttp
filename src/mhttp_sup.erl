@@ -28,5 +28,8 @@ init([]) ->
                 type => supervisor},
               #{id => servers,
                 start => {mhttp_server_sup, start_link, []},
+                type => supervisor},
+              #{id => websocket_clients,
+                start => {mhttp_websocket_client_sup, start_link, [#{}]},
                 type => supervisor}],
   {ok, {{one_for_one, 1, 5}, Children}}.
