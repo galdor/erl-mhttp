@@ -21,12 +21,13 @@
 -export([start_link/1, send_message/2]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
--export_type([ref/0, options/0]).
+-export_type([ref/0, options/0, event_message/0, event/0]).
 
 -type ref() :: et_gen_server:ref().
 
--type options() :: #{ping_interval => pos_integer(), % milliseconds
-                     ping_timeout => pos_integer()}. % milliseconds
+-type options() :: #{event_target => pid() | atom(),
+                     ping_interval => pos_integer(),
+                     ping_timeout => pos_integer()}.
 
 -type state() :: #{options := options(),
                    transport => mhttp:transport(),
@@ -36,6 +37,13 @@
                    parser => mhttp_websocket_parser:parser(),
                    ping_timer => reference(),
                    ping_data => binary()}.
+
+-type event_message() :: {websocket, event()}.
+
+-type event() ::
+        connected
+      | {message, mhttp_websocket:message()}
+      | terminating.
 
 -spec start_link(options()) -> Result when
     Result :: {ok, pid()} | ignore | {error, term()}.
@@ -53,8 +61,8 @@ init([Options]) ->
   {ok, State}.
 
 -spec terminate(et_gen_server:terminate_reason(), state()) -> ok.
-terminate(_Reason, _State) ->
-  ok.
+terminate(_Reason, State) ->
+  send_event(terminating, State).
 
 -spec handle_call(term(), {pid(), et_gen_server:request_id()}, state()) ->
         et_gen_server:handle_call_ret(state()).
@@ -70,6 +78,7 @@ handle_call({activate, Socket, Transport, Data}, _From, State) ->
     set_socket_active(State2, true),
     schedule_send_ping(State2),
     self() ! {tcp, Socket, Data}, % this is one hell of an ugly hack
+    send_event(connected, State2),
     {reply, ok, State2}
   catch
     throw:{error, Reason} ->
@@ -167,10 +176,19 @@ process_message({pong, Data}, State = #{ping_data := ExpectedData,
 process_message({pong, _}, State) ->
   ?LOG_WARNING("unexpected pong"),
   State;
+process_message(Message = {data, _, _}, State) ->
+  send_event({message, Message}, State),
+  State;
 process_message(Message, State) ->
-  %% TODO
-  ?LOG_DEBUG("message: ~tp", [Message]),
+  ?LOG_INFO("unhandled message: ~tp", [Message]),
   State.
+
+-spec send_event(event(), state()) -> ok.
+send_event(Event, #{options := #{event_target := Target}}) ->
+  Target ! {websocket, Event},
+  ok;
+send_event(_, _) ->
+  ok.
 
 -spec schedule_send_ping(state()) -> ok.
 schedule_send_ping(#{options := Options}) ->

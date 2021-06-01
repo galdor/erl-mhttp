@@ -129,7 +129,8 @@ connect(Request, Options) ->
 -spec connect_1(mhttp:request(), mhttp:request_options()) ->
         {ok, pid()} | {error, term()}.
 connect_1(Request, Options0) ->
-  ProtocolOptions = maps:merge(#{nonce => crypto:strong_rand_bytes(16)},
+  ProtocolOptions = maps:merge(#{nonce => crypto:strong_rand_bytes(16),
+                                 client_options => #{event_target => self()}},
                                maps:get(protocol_options, Options0, #{})),
   Options = Options0#{protocol => mhttp_websocket,
                       protocol_options => ProtocolOptions},
