@@ -113,6 +113,9 @@ handle_info({tcp, _Port, Data}, State = #{parser := Parser}) ->
   try
     {noreply, process_data(State2)}
   catch
+    throw:close ->
+      ?LOG_DEBUG("closing connection"),
+      {stop, normal, State};
     throw:{error, Reason} ->
       ?LOG_ERROR("error: ~tp", [Reason]),
       {stop, normal, State}
@@ -138,6 +141,15 @@ process_data(State = #{parser := Parser}) ->
   end.
 
 -spec process_message(mhttp_websocket:message(), state()) -> state().
+process_message(close, _State) ->
+  ?LOG_INFO("server closing connection"),
+  throw(close);
+process_message({close, Status, <<"">>}, _State) ->
+  ?LOG_INFO("server closing connection with status ~b", [Status]),
+  throw(close);
+process_message({close, Status, Data}, _State) ->
+  ?LOG_INFO("server closing connection with status ~b (~ts)", [Status, Data]),
+  throw(close);
 process_message({ping, Data}, State) ->
   do_send_message({pong, Data}, State),
   State;
