@@ -16,7 +16,7 @@
 
 -behaviour(supervisor).
 
--export([start_link/0, start_pool/2]).
+-export([start_link/0, start_pool/2, stop_pool/1]).
 -export([init/1]).
 
 -spec start_link() -> supervisor:startlink_ret().
@@ -27,6 +27,13 @@ start_link() ->
         supervisor:startchild_ret().
 start_pool(Id, Options) ->
   supervisor:start_child(?MODULE, pool_child_spec(Id, Options)).
+
+-spec stop_pool(mhttp:pool_id()) -> ok.
+stop_pool(Id) ->
+  mhttp_pool:stop(Id),
+  supervisor:terminate_child(?MODULE, Id),
+  supervisor:delete_child(?MODULE, Id),
+  ok.
 
 init([]) ->
   Children = pool_child_specs(),
