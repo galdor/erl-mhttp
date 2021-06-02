@@ -30,7 +30,6 @@ start_pool(Id, Options) ->
 
 -spec stop_pool(mhttp:pool_id()) -> ok.
 stop_pool(Id) ->
-  mhttp_pool:stop(Id),
   supervisor:terminate_child(?MODULE, Id),
   supervisor:delete_child(?MODULE, Id),
   ok.

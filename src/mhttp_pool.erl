@@ -20,7 +20,7 @@
 
 -export([process_name/1, start_link/2, stop/1,
          send_request/2, send_request/3]).
--export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 
 -export_type([name/0, ref/0, options/0]).
 
@@ -81,10 +81,6 @@ init([Id, Options]) ->
 ets_table_name(Table, Id) ->
   Bin = <<"mhttp_pool_", (atom_to_binary(Id))/binary, "__", Table/binary>>,
   binary_to_atom(Bin).
-
--spec terminate(et_gen_server:terminate_reason(), state()) -> ok.
-terminate(_Reason, _State) ->
-  ok.
 
 -spec handle_call(term(), {pid(), et_gen_server:request_id()}, state()) ->
         et_gen_server:handle_call_ret(state()).
