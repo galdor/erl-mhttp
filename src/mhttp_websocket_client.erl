@@ -157,6 +157,10 @@ process_messages([Message | Messages], State) ->
 process_message(close, State) ->
   ?LOG_INFO("server closing connection"),
   {error, close, State};
+process_message({close, 1000, _}, State) ->
+  %% Normal shutdown
+  ?LOG_DEBUG("server closing connection"),
+  {error, close, State};
 process_message({close, Status, <<"">>}, State) ->
   ?LOG_INFO("server closing connection (status ~b)", [Status]),
   {error, close, State};
