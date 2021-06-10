@@ -213,6 +213,7 @@ do_send_request(State, Request, Options, NbRedirectionsLeft) ->
           {State, Response}
       end;
     {ok, {upgraded, Response, Pid}} ->
+      delete_client(State, Pid),
       {State, {upgraded, Response, Pid}};
     {error, Reason} ->
       throw({error, Reason})
