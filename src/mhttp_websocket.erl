@@ -72,10 +72,10 @@ upgrade(_Request, Response, Options = #{nonce := Nonce}) ->
         {ok, Pid} ->
           {ok, Pid};
         {error, Reason} ->
-          {error, {websocket, {start_client, Reason}}}
+          {error, {start_websocket_client, Reason}}
       end;
     {error, Reason} ->
-      {error, {websocket, Reason}}
+      {error, Reason}
   end.
 
 -spec activate(pid(), mhttp:socket(), mhttp:transport(), binary()) ->
@@ -96,10 +96,10 @@ validate_response(Response, Nonce) ->
         Value =:= Expected ->
           ok;
         true ->
-          {error, accept_header_field_mismatch}
+          {error, websocket_accept_header_field_mismatch}
       end;
     error ->
-      {error, missing_accept_header_field}
+      {error, missing_websocket_accept_header_field}
   end.
 
 -spec connect(mhttp:request()) -> mhttp:result(pid()).
@@ -124,7 +124,7 @@ connect(Request, Options) ->
     _ when Scheme =:= <<"http">>; Scheme =:= <<"https">> ->
       connect_1(Request#{method => <<"GET">>}, Options);
     InvalidScheme ->
-      {error, {websocket, {invalid_scheme, InvalidScheme}}}
+      {error, {invalid_websocket_scheme, InvalidScheme}}
   end.
 
 -spec connect_1(mhttp:request(), mhttp:request_options()) ->
@@ -137,7 +137,7 @@ connect_1(Request, Options0) ->
                       protocol_options => ProtocolOptions},
   case mhttp:send_request(Request, Options) of
     {ok, Response} when is_map(Response) ->
-      {error, {no_upgrade, Response}};
+      {error, {no_websocket_upgrade, Response}};
     {ok, {upgraded, _Response, Pid}} ->
       {ok, Pid};
     {error, Reason} ->

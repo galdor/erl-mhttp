@@ -46,6 +46,11 @@
       | {invalid_target, missing_host}
       | too_many_redirections
       | {invalid_location_header_field, uri:error_reason()}
+      | {invalid_websocket_scheme, binary()}
+      | {no_websocket_upgrade, mhttp:response()}
+      | websocket_accept_header_field_mismatch
+      | missing_websocket_accept_header_field
+      | {start_websocket_client, term()}
       | term().
 
 -type pool_id() :: atom().
