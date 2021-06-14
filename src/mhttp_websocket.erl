@@ -19,7 +19,7 @@
 -export([request/2, upgrade/3, activate/4]).
 -export([connect/1, connect/2, serialize/1, mask/2]).
 
--export_type([options/0,
+-export_type([options/0, error_reason/0,
               message/0, data_type/0,
               status/0, masking_key/0]).
 
@@ -27,6 +27,13 @@
         #{nonce := binary(),
           subprotocols => [binary()],
           client_options => mhttp_websocket_client:options()}.
+
+-type error_reason() ::
+        {invalid_scheme, binary()}
+      | {no_upgrade, mhttp:response()}
+      | accept_header_field_mismatch
+      | missing_accept_header_field
+      | {start_client, term()}.
 
 -type message() ::
         {data, data_type(), binary()}
@@ -63,7 +70,7 @@ request(Request, Options = #{nonce := Nonce}) ->
   Request#{header => Header2}.
 
 -spec upgrade(mhttp:request(), mhttp:response(), options()) ->
-        {ok, pid()} | {error, term()}.
+        mhttp:result(pid()).
 upgrade(_Request, Response, Options = #{nonce := Nonce}) ->
   ClientOptions = maps:get(client_options, Options, #{}),
   case validate_response(Response, Nonce) of
@@ -72,7 +79,7 @@ upgrade(_Request, Response, Options = #{nonce := Nonce}) ->
         {ok, Pid} ->
           {ok, Pid};
         {error, Reason} ->
-          {error, {start_websocket_client, Reason}}
+          {error, {websocket, {start_client, Reason}}}
       end;
     {error, Reason} ->
       {error, Reason}
@@ -84,7 +91,7 @@ activate(Pid, Socket, Transport, SocketData) ->
   %% TODO gen_server exit error ?
   gen_server:call(Pid, {activate, Socket, Transport, SocketData}, infinity).
 
--spec validate_response(mhttp:response(), binary()) -> ok | {error, term()}.
+-spec validate_response(mhttp:response(), binary()) -> mhttp:result().
 validate_response(Response, Nonce) ->
   Header = mhttp_response:header(Response),
   case mhttp_header:find(Header, <<"Sec-WebSocket-Accept">>) of
@@ -96,18 +103,17 @@ validate_response(Response, Nonce) ->
         Value =:= Expected ->
           ok;
         true ->
-          {error, websocket_accept_header_field_mismatch}
+          {error, {websocket, accept_header_field_mismatch}}
       end;
     error ->
-      {error, missing_websocket_accept_header_field}
+      {error, {websocket, missing_accept_header_field}}
   end.
 
 -spec connect(mhttp:request()) -> mhttp:result(pid()).
 connect(Request) ->
   connect(Request, #{}).
 
--spec connect(mhttp:request(), mhttp:request_options()) ->
-        mhttp:result(pid()).
+-spec connect(mhttp:request(), mhttp:request_options()) -> mhttp:result(pid()).
 connect(Request, Options) ->
   Target = mhttp_request:target_uri(Request),
   Scheme = case maps:find(scheme, Target) of
@@ -124,7 +130,7 @@ connect(Request, Options) ->
     _ when Scheme =:= <<"http">>; Scheme =:= <<"https">> ->
       connect_1(Request#{method => <<"GET">>}, Options);
     InvalidScheme ->
-      {error, {invalid_websocket_scheme, InvalidScheme}}
+      {error, {websocket, {invalid_scheme, InvalidScheme}}}
   end.
 
 -spec connect_1(mhttp:request(), mhttp:request_options()) ->
@@ -137,7 +143,7 @@ connect_1(Request, Options0) ->
                       protocol_options => ProtocolOptions},
   case mhttp:send_request(Request, Options) of
     {ok, Response} when is_map(Response) ->
-      {error, {no_websocket_upgrade, Response}};
+      {error, {websocket, {no_upgrade, Response}}};
     {ok, {upgraded, _Response, Pid}} ->
       {ok, Pid};
     {error, Reason} ->

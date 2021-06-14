@@ -46,11 +46,7 @@
       | {invalid_target, missing_host}
       | too_many_redirections
       | {invalid_location_header_field, uri:error_reason()}
-      | {invalid_websocket_scheme, binary()}
-      | {no_websocket_upgrade, mhttp:response()}
-      | websocket_accept_header_field_mismatch
-      | missing_websocket_accept_header_field
-      | {start_websocket_client, term()}
+      | {websocket, mhttp_websocket:error_reason()}
       | {connect, term()}
       | connection_closed
       | send_timeout
@@ -60,6 +56,7 @@
       | {setopts, term()}
       | {peername, term()}
       | {controlling_process, term()}
+      | {unexpected_data, binary()}
       | {invalid_data, term()} % TODO mhttp_parser:error_reason()
       | term().
 
