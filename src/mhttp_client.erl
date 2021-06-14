@@ -107,7 +107,7 @@ handle_call({send_request, Request, Options}, _From, State) ->
       {stop, normal, {ok, Result}, State2}
   catch
     throw:{error, Reason} ->
-      {stop, normal, {error, Reason}, State}
+      {stop, Reason, {error, Reason}, State}
   end;
 handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),

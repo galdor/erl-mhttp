@@ -92,9 +92,9 @@ handle_call({send_request, Request0, Options}, _From, State) ->
   catch
     throw:{error, Reason} ->
       {reply, {error, Reason}, State};
-    exit:{Reason, _MFA} ->
-      %% TODO
-      {reply, {error, {client_error, Reason}}, State}
+    exit:{Reason, _Trace} ->
+      %% Happens if the client failed (error or exit) during call processing
+      {reply, {error, Reason}, State}
   end;
 handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),
@@ -110,7 +110,7 @@ handle_info({'EXIT', Pid, normal}, State) ->
   delete_client(State, Pid),
   {noreply, State};
 handle_info({'EXIT', Pid, Reason}, State) ->
-  ?LOG_DEBUG("client ~p exited:~n~tp", [Pid, Reason]),
+  ?LOG_ERROR("client ~p exited:~n~tp", [Pid, Reason]),
   delete_client(State, Pid),
   {noreply, State};
 handle_info(Msg, State) ->
