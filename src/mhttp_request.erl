@@ -123,18 +123,16 @@ maybe_add_content_length(Request) ->
                                         integer_to_binary(Length)),
   Request#{header => Header2}.
 
--spec redirect(mhttp:request(), mhttp:status(), uri:uri()) ->
+-spec redirect(mhttp:request(), mhttp:response(), uri:uri()) ->
         mhttp:request().
-redirect(Request = #{method := Method, target := Target}, Status, URI) ->
-  {Method2, Body} = case Status of
-                      303 ->
-                        {get, <<>>};
-                      _ ->
-                        {Method, maps:get(body, Request, <<>>)}
-                    end,
-  Request#{method => Method2,
+redirect(Request = #{target := Target}, #{status := 303}, URI) ->
+  Request#{method => get,
            target => redirection_uri(Target, URI),
-           body => Body}.
+           body => <<>>};
+redirect(Request = #{method := Method, target := Target},
+         #{status := _}, URI) ->
+  Request#{method => Method,
+           target => redirection_uri(Target, URI)}.
 
 -spec redirection_uri(Target :: mhttp:target(), URIReference :: uri:uri()) ->
         uri:uri().

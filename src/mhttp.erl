@@ -25,7 +25,7 @@
               transport/0, socket/0,
               client_key/0,
               request/0, request_options/0,
-              response/0,
+              response/0, response_result/0,
               msg_internal/0,
               method/0, target/0, version/0, status/0, status_name/0,
               header_name/0, header_value/0, header_field/0,
@@ -41,7 +41,12 @@
 -type result(Type) :: {ok, Type} | {error, error_reason()}.
 
 -type error_reason() ::
-        term().
+        {invalid_target, uri:error_reason()}
+      | {invalid_target, missing_scheme}
+      | {invalid_target, missing_host}
+      | too_many_redirections
+      | {invalid_location_header_field, uri:error_reason()}
+      | term().
 
 -type pool_id() :: atom().
 -type server_id() :: atom().
@@ -73,6 +78,8 @@
                       body => body(),
                       trailer => header(),
                       internal => msg_internal()}.
+
+-type response_result() :: response() | {upgraded, response(), pid()}.
 
 -type msg_internal() :: #{original_body_size => non_neg_integer()}.
 
@@ -127,13 +134,11 @@
 start_pool(Id, Options) ->
   mhttp_pool_sup:start_pool(Id, Options).
 
--spec send_request(request()) ->
-        result(response() | {upgraded, response(), pid()}).
+-spec send_request(request()) -> result(response_result()).
 send_request(Request) ->
   send_request(Request, #{}).
 
--spec send_request(request(), request_options()) ->
-        result(response() | {upgraded, response(), pid()}).
+-spec send_request(request(), request_options()) -> result(response_result()).
 send_request(Request, Options) ->
   PoolId = maps:get(pool, Options, default),
   PoolRef = mhttp_pool:process_name(PoolId),

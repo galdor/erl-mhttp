@@ -86,21 +86,15 @@ ets_table_name(Table, Id) ->
 -spec handle_call(term(), {pid(), et_gen_server:request_id()}, state()) ->
         et_gen_server:handle_call_ret(state()).
 handle_call({send_request, Request0, Options}, _From, State) ->
-  case mhttp_request:canonicalize_target(Request0) of
-    {ok, Request} ->
-      MaxNbRedirections = maps:get(max_nb_redirections, Options, 5),
-      try
-        {State, Result} = do_send_request(State, Request, Options,
-                                          MaxNbRedirections),
-        {reply, {ok, Result}, State}
-      catch
-        throw:{error, Reason} ->
-          {reply, {error, Reason}, State};
-        exit:{Reason, _MFA} ->
-          {reply, {error, {client_error, Reason}}, State}
-      end;
-    {error, Reason} ->
-      {reply, {error, Reason}, State}
+  try
+    {Result, State2} = handle_send_request(Request0, Options, State),
+    {reply, {ok, Result}, State2}
+  catch
+    throw:{error, Reason} ->
+      {reply, {error, Reason}, State};
+    exit:{Reason, _MFA} ->
+      %% TODO
+      {reply, {error, {client_error, Reason}}, State}
   end;
 handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),
@@ -122,6 +116,65 @@ handle_info({'EXIT', Pid, Reason}, State) ->
 handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
   {noreply, State}.
+
+-spec handle_send_request(mhttp:request(), mhttp:request_options(), state()) ->
+        {mhttp:response_result(), state()}.
+handle_send_request(Request, Options, State) ->
+  case mhttp_request:canonicalize_target(Request) of
+    {ok, CanonicRequest} ->
+      MaxNbRedirections = maps:get(max_nb_redirections, Options, 5),
+      send_request_1(CanonicRequest, Options, MaxNbRedirections, State);
+    {error, Reason} ->
+      throw({error, Reason})
+  end.
+
+-spec send_request_1(mhttp:request(), mhttp:request_options(),
+                      NbRedirectionsLeft :: non_neg_integer(), state()) ->
+        {mhttp:response_result(), state()}.
+send_request_1(_Request, _Options, 0, _State) ->
+  throw({error, too_many_redirections});
+send_request_1(CanonicRequest, Options, NbRedirectionsLeft, State) ->
+  %% The actual request sent is derived from the canonic request. We only keep
+  %% the path, query and fragment. We still need the canonic request to
+  %% compute a potential redirection target since the URI reference resolution
+  %% process requires the original scheme.
+  NetrcEntry = netrc_entry(CanonicRequest, State),
+  {Target, Key} = request_target_and_key(CanonicRequest, NetrcEntry),
+  Credentials = netrc_credentials(NetrcEntry),
+  Client = get_or_create_client(State, Key, Credentials),
+  Request = CanonicRequest#{target => Target},
+  case mhttp_client:send_request(Client, Request, Options) of
+    {ok, Response} when is_map(Response) ->
+      case redirection_uri(Response, Options) of
+        undefined ->
+          {Response, State};
+        URI ->
+          NextRequest = mhttp_request:redirect(CanonicRequest, Response, URI),
+          send_request_1(NextRequest, Options, NbRedirectionsLeft-1, State)
+      end;
+    {ok, {upgraded, Response, Pid}} ->
+      delete_client(State, Pid),
+      {{upgraded, Response, Pid}, State};
+    {error, Reason} ->
+      throw({error, Reason})
+  end.
+
+-spec redirection_uri(mhttp:response(), mhttp:request_options()) ->
+        uri:uri() | undefined.
+redirection_uri(Response, Options) ->
+  case maps:get(follow_redirections, Options, true) of
+    true ->
+      case mhttp_response:is_redirection(Response) of
+        {true, URI} ->
+          URI;
+        false ->
+          undefined;
+        {error, Reason} ->
+          throw({error, Reason})
+      end;
+    false ->
+      undefined
+  end.
 
 -spec get_or_create_client(state(), mhttp:client_key(),
                            mhttp:credentials()) ->
@@ -164,7 +217,7 @@ create_client(#{id := Id, options := Options}, {Host, Port, Transport},
     {ok, Pid} ->
       Pid;
     {error, Reason} ->
-      throw({error, {client_error, Reason}})
+      throw({error, Reason})
   end.
 
 -spec delete_client(state(), pid()) -> ok.
@@ -179,47 +232,10 @@ delete_client(#{clients_by_key := ClientsByKey,
       ok
   end.
 
--spec do_send_request(state(), mhttp:request(), mhttp:request_options(),
-                      NbRedirectionsLeft :: non_neg_integer()) ->
-        {state(), mhttp:response()}.
-do_send_request(_State, _Request, _Options, 0) ->
-  throw({error, too_many_redirections});
-do_send_request(State, Request, Options, NbRedirectionsLeft) ->
-  Target = mhttp_request:target_uri(Request),
-  Host = mhttp_uri:host(Target),
-  NetrcEntry = netrc_entry(Host, State),
-  {Target2, Key} = request_target_and_key(Target, NetrcEntry),
-  Credentials = netrc_credentials(NetrcEntry),
-  Client = get_or_create_client(State, Key, Credentials),
-  Request2 = Request#{target => Target2},
-  case mhttp_client:send_request(Client, Request2, Options) of
-    {ok, Response} when is_map(Response) ->
-      case maps:get(follow_redirections, Options, true) of
-        true ->
-          case mhttp_response:is_redirection(Response) of
-            {true, URI} ->
-              Status = maps:get(status, Response),
-              NextRequest = mhttp_request:redirect(Request, Status, URI),
-              do_send_request(State, NextRequest, Options,
-                              NbRedirectionsLeft-1);
-            false ->
-              {State, Response};
-            {error, Reason} ->
-              throw({error, Reason})
-          end;
-        false ->
-          {State, Response}
-      end;
-    {ok, {upgraded, Response, Pid}} ->
-      delete_client(State, Pid),
-      {State, {upgraded, Response, Pid}};
-    {error, Reason} ->
-      throw({error, Reason})
-  end.
-
--spec request_target_and_key(uri:uri(), netrc:entry() | undefined) ->
+-spec request_target_and_key(mhttp:request(), netrc:entry() | undefined) ->
         {mhttp:target(), mhttp:client_key()}.
-request_target_and_key(Target, NetrcEntry) ->
+request_target_and_key(Request, NetrcEntry) ->
+  Target = mhttp_request:target_uri(Request),
   Host = mhttp_uri:host(Target),
   Port = request_port(Target, NetrcEntry),
   Transport = mhttp_uri:transport(Target),
@@ -228,10 +244,12 @@ request_target_and_key(Target, NetrcEntry) ->
   Target3 = Target2#{path => mhttp_uri:path(Target2)},
   {Target3, Key}.
 
--spec netrc_entry(uri:host(), state()) -> netrc:entry() | undefined.
-netrc_entry(Host, #{options := Options}) ->
+-spec netrc_entry(mhttp:request(), state()) -> netrc:entry() | undefined.
+netrc_entry(Request, #{options := Options}) ->
   case maps:get(use_netrc, Options, false) of
     true ->
+      Target = mhttp_request:target_uri(Request),
+      Host = mhttp_uri:host(Target),
       case mhttp_netrc:lookup(Host) of
         {ok, Entry} ->
           Entry;
