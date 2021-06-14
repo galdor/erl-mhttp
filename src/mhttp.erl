@@ -20,7 +20,8 @@
          header_name_equal/2,
          status/1]).
 
--export_type([pool_id/0, server_id/0,
+-export_type([result/0, result/1, error_reason/0,
+              pool_id/0, server_id/0,
               transport/0, socket/0,
               client_key/0,
               request/0, request_options/0,
@@ -35,6 +36,12 @@
               handler_router_options/0, handler_context/0,
               error_handler/0,
               credentials/0]).
+
+-type result() :: ok | {error, error_reason()}.
+-type result(Type) :: {ok, Type} | {error, error_reason()}.
+
+-type error_reason() ::
+        term().
 
 -type pool_id() :: atom().
 -type server_id() :: atom().
@@ -121,12 +128,12 @@ start_pool(Id, Options) ->
   mhttp_pool_sup:start_pool(Id, Options).
 
 -spec send_request(request()) ->
-        {ok, response() | {upgraded, response(), pid()}} | {error, term()}.
+        result(response() | {upgraded, response(), pid()}).
 send_request(Request) ->
   send_request(Request, #{}).
 
 -spec send_request(request(), request_options()) ->
-        {ok, response() | {upgraded, response(), pid()}} | {error, term()}.
+        result(response() | {upgraded, response(), pid()}).
 send_request(Request, Options) ->
   PoolId = maps:get(pool, Options, default),
   PoolRef = mhttp_pool:process_name(PoolId),

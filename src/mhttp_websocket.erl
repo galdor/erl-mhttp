@@ -102,13 +102,12 @@ validate_response(Response, Nonce) ->
       {error, missing_accept_header_field}
   end.
 
--spec connect(mhttp:request()) ->
-        {ok, pid()} | {error, term()}.
+-spec connect(mhttp:request()) -> mhttp:result(pid()).
 connect(Request) ->
   connect(Request, #{}).
 
 -spec connect(mhttp:request(), mhttp:request_options()) ->
-        {ok, pid()} | {error, term()}.
+        mhttp:result(pid()).
 connect(Request, Options) ->
   Target = mhttp_request:target_uri(Request),
   Scheme = case maps:find(scheme, Target) of
@@ -129,7 +128,7 @@ connect(Request, Options) ->
   end.
 
 -spec connect_1(mhttp:request(), mhttp:request_options()) ->
-        {ok, pid()} | {error, term()}.
+        mhttp:result(pid()).
 connect_1(Request, Options0) ->
   ProtocolOptions = maps:merge(#{nonce => crypto:strong_rand_bytes(16),
                                  client_options => #{event_target => self()}},
