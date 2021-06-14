@@ -51,6 +51,16 @@
       | websocket_accept_header_field_mismatch
       | missing_websocket_accept_header_field
       | {start_websocket_client, term()}
+      | {connect, term()}
+      | connection_closed
+      | send_timeout
+      | {send, term()}
+      | recv_timeout
+      | {recv, term()}
+      | {setopts, term()}
+      | {peername, term()}
+      | {controlling_process, term()}
+      | {invalid_data, term()} % TODO mhttp_parser:error_reason()
       | term().
 
 -type pool_id() :: atom().

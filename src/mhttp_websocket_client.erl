@@ -224,7 +224,7 @@ set_socket_active(#{transport := Transport, socket := Socket}, Active) ->
   case Setopts(Socket, [{active, Active}]) of
     ok ->
       ok;
-    {error, closed} ->
+    {error, connection_closed} ->
       error(connection_closed);
     {error, Reason} ->
       error({setopts, Reason})
@@ -242,7 +242,7 @@ send(Data, #{transport := Transport, socket := Socket}) ->
     {error, closed} ->
       error(connection_closed);
     {error, timeout} ->
-      error(write_timeout);
+      error(send_timeout);
     {error, Reason} ->
       error({send, Reason})
   end.

@@ -60,14 +60,12 @@ start_link(Options) ->
   gen_server:start_link(?MODULE, [Options], []).
 
 -spec send_request(ref(), mhttp:request()) ->
-        {ok, mhttp:response() | {upgraded, mhttp:response(), pid()}} |
-        {error, term()}.
+        mhttp:result(mhttp:response_result()).
 send_request(Ref, Request) ->
   send_request(Ref, Request, #{}).
 
 -spec send_request(ref(), mhttp:request(), mhttp:request_options()) ->
-        {ok, mhttp:response() | {upgraded, mhttp:response(), pid()}} |
-        {error, term()}.
+        mhttp:result(mhttp:response_result()).
 send_request(Ref, Request, Options) ->
   gen_server:call(Ref, {send_request, Request, Options}, infinity).
 
@@ -85,7 +83,6 @@ init([Options]) ->
 terminate(_Reason, State = #{socket := Socket}) ->
   case maps:get(upgraded, State, false) of
     false ->
-      ?LOG_DEBUG("closing connection"),
       case maps:get(transport, State) of
         tcp -> gen_tcp:close(Socket);
         tls -> ssl:close(Socket)
@@ -97,46 +94,39 @@ terminate(_Reason, State = #{socket := Socket}) ->
 
 -spec handle_call(term(), {pid(), et_gen_server:request_id()}, state()) ->
         et_gen_server:handle_call_ret(state()).
-
 handle_call({send_request, Request, Options}, _From, State) ->
-  try do_send_request(State, Request, Options) of
-    {response, Response, State2} ->
+  try send_request_1(Request, Options, State) of
+    {Response, State2} when is_map(Response) ->
       case connection_needs_closing(Response) of
         true ->
           {stop, normal, {ok, Response}, State2};
         false ->
           {reply, {ok, Response}, State2}
       end;
-    {upgraded, Response, Pid, State2} ->
-      {stop, normal, {ok, {upgraded, Response, Pid}}, State2}
+    {Result = {upgraded, _, _}, State2} ->
+      {stop, normal, {ok, Result}, State2}
   catch
     throw:{error, Reason} ->
       {stop, normal, {error, Reason}, State}
   end;
-
 handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),
   {reply, unhandled, State}.
 
 -spec handle_cast(term(), state()) -> et_gen_server:handle_cast_ret(state()).
-
 handle_cast(Msg, State) ->
   ?LOG_WARNING("unhandled cast ~p", [Msg]),
   {noreply, State}.
 
 -spec handle_info(term(), state()) -> et_gen_server:handle_info_ret(state()).
-
 handle_info({Event, _}, _State) when Event =:= tcp_closed;
                                      Event =:= ssl_closed ->
   ?LOG_DEBUG("connection closed"),
   exit(normal);
-
 handle_info({tcp, _Socket, Data}, _State) ->
   error({unexpected_data, Data});
-
 handle_info({ssl, _Socket, Data}, _State) ->
   error({unexpected_data, Data});
-
 handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
   {noreply, State}.
@@ -186,7 +176,7 @@ connect(Options) ->
       {ok, State};
     {error, Reason} ->
       ?LOG_ERROR("connection failed: ~p", [Reason]),
-      {error, Reason}
+      {error, {connect, Reason}}
   end.
 
 -spec host_address(uri:host()) -> inet:hostname() | inet:socket_address().
@@ -207,10 +197,9 @@ host_address(Host) ->
       HostString
   end.
 
--spec do_send_request(state(), mhttp:request(), mhttp:request_options()) ->
-        {response, mhttp:response(), state()} |
-        {upgraded, mhttp:response(), pid(), state()}.
-do_send_request(State, Request0, RequestOptions) ->
+-spec send_request_1(mhttp:request(), mhttp:request_options(), state()) ->
+        {mhttp:response_result(), state()}.
+send_request_1(Request0, RequestOptions, State) ->
   StartTime = erlang:system_time(microsecond),
   Request = finalize_request(State, Request0, RequestOptions),
   send(State, mhttp_proto:encode_request(Request)),
@@ -219,10 +208,10 @@ do_send_request(State, Request0, RequestOptions) ->
   log_request(Request, Response, StartTime, State2),
   case maybe_upgrade(Request, RequestOptions, Response, State2) of
     {upgraded, Pid, State3} ->
-      {upgraded, Response, Pid, State3};
+      {{upgraded, Response, Pid}, State3};
     not_upgraded ->
       set_socket_active(State2, true),
-      {response, Response, State2}
+      {Response, State2}
   end.
 
 -spec finalize_request(state(), mhttp:request(), mhttp:request_options()) ->
@@ -395,7 +384,7 @@ send(#{transport := Transport, socket := Socket}, Data) ->
     {error, closed} ->
       throw({error, connection_closed});
     {error, timeout} ->
-      throw({error, write_timeout});
+      throw({error, send_timeout});
     {error, Reason} ->
       throw({error, {send, Reason}})
   end.
@@ -413,7 +402,7 @@ recv(#{options := Options, transport := Transport, socket := Socket}, N) ->
     {error, closed} ->
       throw({error, connection_closed});
     {error, timeout} ->
-      throw({error, read_timeout});
+      throw({error, recv_timeout});
     {error, Reason} ->
       throw({error, {recv, Reason}})
   end.
