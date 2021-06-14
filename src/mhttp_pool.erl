@@ -27,14 +27,16 @@
 -type name() :: et_gen_server:name().
 -type ref() :: et_gen_server:ref().
 
--type options() :: #{client_options => mhttp_client:options(),
-                     max_connections_per_key => pos_integer(),
-                     use_netrc => boolean()}.
+-type options() ::
+        #{client_options => mhttp_client:options(),
+          max_connections_per_key => pos_integer(),
+          use_netrc => boolean()}.
 
--type state() :: #{id := mhttp:pool_id(),
-                   options := options(),
-                   clients_by_key := ets:tid(),
-                   clients_by_pid := ets:tid()}.
+-type state() ::
+        #{id := mhttp:pool_id(),
+          options := options(),
+          clients_by_key := ets:tid(),
+          clients_by_pid := ets:tid()}.
 
 -spec process_name(mhttp:pool_id()) -> atom().
 process_name(Id) ->
@@ -65,7 +67,6 @@ send_request(Ref, Request, Options) ->
   gen_server:call(Ref, {send_request, Request, Options}, infinity).
 
 -spec init(list()) -> et_gen_server:init_ret(state()).
-
 init([Id, Options]) ->
   logger:update_process_metadata(#{domain => [mhttp, pool, Id]}),
   process_flag(trap_exit, true),
@@ -84,7 +85,6 @@ ets_table_name(Table, Id) ->
 
 -spec handle_call(term(), {pid(), et_gen_server:request_id()}, state()) ->
         et_gen_server:handle_call_ret(state()).
-
 handle_call({send_request, Request0, Options}, _From, State) ->
   case mhttp_request:canonicalize_target(Request0) of
     {ok, Request} ->
@@ -102,13 +102,11 @@ handle_call({send_request, Request0, Options}, _From, State) ->
     {error, Reason} ->
       {reply, {error, Reason}, State}
   end;
-
 handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),
   {reply, unhandled, State}.
 
 -spec handle_cast(term(), state()) -> et_gen_server:handle_cast_ret(state()).
-
 handle_cast(Msg, State) ->
   ?LOG_WARNING("unhandled cast ~p", [Msg]),
   {noreply, State}.

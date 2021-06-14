@@ -29,28 +29,30 @@
 %% XXX If the client is part of a pool, we need to keep track of the pool id
 %% for request logging. Using options to store the pool id is a hack, we need
 %% a better way.
--type options() :: #{host => uri:host(),
-                     port => uri:port_number(),
-                     transport => mhttp:transport(),
-                     tcp_options => [tcp_option()],
-                     tls_options => [tls_option()],
-                     connection_timeout => timeout(),
-                     read_timeout => timeout(),
-                     header => mhttp:header(),
-                     compression => boolean(),
-                     log_requests => boolean(),
-                     credentials => mhttp:credentials(),
-                     ca_certificate_bundle_path => file:name_all() | undefined,
-                     pool => mhttp:pool_id()}.
+-type options() ::
+        #{host => uri:host(),
+          port => uri:port_number(),
+          transport => mhttp:transport(),
+          tcp_options => [tcp_option()],
+          tls_options => [tls_option()],
+          connection_timeout => timeout(),
+          read_timeout => timeout(),
+          header => mhttp:header(),
+          compression => boolean(),
+          log_requests => boolean(),
+          credentials => mhttp:credentials(),
+          ca_certificate_bundle_path => file:name_all() | undefined,
+          pool => mhttp:pool_id()}.
 
 -type tcp_option() :: gen_tcp:connect_option().
 -type tls_option() :: ssl:tls_client_option().
 
--type state() :: #{options := options(),
-                   transport := mhttp:transport(),
-                   socket := mhttp:socket(),
-                   parser := mhttp_parser:parser(),
-                   upgraded => boolean()}.
+-type state() ::
+        #{options := options(),
+          transport := mhttp:transport(),
+          socket := mhttp:socket(),
+          parser := mhttp_parser:parser(),
+          upgraded => boolean()}.
 
 -spec start_link(options()) -> Result when
     Result :: {ok, pid()} | ignore | {error, term()}.
