@@ -153,7 +153,6 @@ send_request_1(CanonicRequest, Options, NbRedirectionsLeft, State) ->
           send_request_1(NextRequest, Options, NbRedirectionsLeft-1, State)
       end;
     {ok, {upgraded, Response, Pid}} ->
-      delete_client(State, Pid),
       {{upgraded, Response, Pid}, State};
     {error, Reason} ->
       throw({error, Reason})
