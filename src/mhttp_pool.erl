@@ -230,9 +230,8 @@ create_client({Host, Port, Transport}, Credentials,
                               maps:get(client_options, Options, #{})),
   ClientOptions = ClientOptions0#{host => Host,
                                   port => Port,
-                                  transport => Transport,
-                                  pool => Id},
-  case mhttp_client:start_link(ClientOptions) of
+                                  transport => Transport},
+  case mhttp_client:start_link(Id, ClientOptions) of
     {ok, Pid} ->
       Pid;
     {error, Reason} ->

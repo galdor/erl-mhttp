@@ -18,7 +18,7 @@
 
 -behaviour(gen_server).
 
--export([start_link/1, send_request/2, send_request/3]).
+-export([start_link/2, send_request/2, send_request/3]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 
 -export_type([name/0, ref/0, options/0, tcp_option/0, tls_option/0]).
@@ -26,9 +26,6 @@
 -type name() :: et_gen_server:name().
 -type ref() :: et_gen_server:ref().
 
-%% XXX If the client is part of a pool, we need to keep track of the pool id
-%% for request logging. Using options to store the pool id is a hack, we need
-%% a better way.
 -type options() ::
         #{host => uri:host(),
           port => uri:port_number(),
@@ -41,23 +38,22 @@
           compression => boolean(),
           log_requests => boolean(),
           credentials => mhttp:credentials(),
-          ca_certificate_bundle_path => file:name_all() | undefined,
-          pool => mhttp:pool_id()}.
+          ca_certificate_bundle_path => file:name_all() | undefined}.
 
 -type tcp_option() :: gen_tcp:connect_option().
 -type tls_option() :: ssl:tls_client_option().
 
 -type state() ::
-        #{options := options(),
+        #{pool := mhttp:pool_id(),
+          options := options(),
           transport := mhttp:transport(),
           socket := mhttp:socket(),
           parser := mhttp_parser:parser(),
           upgraded => boolean()}.
 
--spec start_link(options()) -> Result when
-    Result :: {ok, pid()} | ignore | {error, term()}.
-start_link(Options) ->
-  gen_server:start_link(?MODULE, [Options], []).
+-spec start_link(mhttp:pool_id(), options()) -> et_gen_server:start_ret().
+start_link(PoolId, Options) ->
+  gen_server:start_link(?MODULE, [PoolId, Options], []).
 
 -spec send_request(ref(), mhttp:request()) ->
         mhttp:result(mhttp:response_result()).
@@ -70,9 +66,9 @@ send_request(Ref, Request, Options) ->
   gen_server:call(Ref, {send_request, Request, Options}, infinity).
 
 -spec init(list()) -> et_gen_server:init_ret(state()).
-init([Options]) ->
+init([PoolId, Options]) ->
   logger:update_process_metadata(#{domain => log_domain()}),
-  case connect(Options) of
+  case connect(PoolId, Options) of
     {ok, State} ->
       {ok, State};
     {error, Reason} ->
@@ -152,8 +148,8 @@ options_host(Options) ->
 options_port(Options) ->
   maps:get(port, Options, 80).
 
--spec connect(options()) -> {ok, state()} | {error, term()}.
-connect(Options) ->
+-spec connect(mhttp:pool_id(), options()) -> {ok, state()} | {error, term()}.
+connect(PoolId, Options) ->
   Transport = options_transport(Options),
   Host = options_host(Options),
   Port = options_port(Options),
@@ -168,7 +164,8 @@ connect(Options) ->
             end,
   case Connect(HostAddress, Port, ConnectOptions, Timeout) of
     {ok, Socket} ->
-      State = #{options => Options,
+      State = #{pool => PoolId,
+                options => Options,
                 transport => Transport,
                 socket => Socket,
                 parser => mhttp_parser:new(response)},
@@ -290,11 +287,11 @@ host_finalization_fun(Options) ->
 
 -spec log_request(mhttp:request(), mhttp:response(), StartTime :: integer(),
                   state()) -> ok.
-log_request(Request, Response, StartTime, #{options := Options}) ->
+log_request(Request, Response, StartTime,
+            #{pool := PoolId, options := Options}) ->
   case maps:get(log_requests, Options, true) of
     true ->
-      Pool = maps:get(pool, Options, undefined),
-      mhttp_log:log_outgoing_request(Request, Response, StartTime, Pool,
+      mhttp_log:log_outgoing_request(Request, Response, StartTime, PoolId,
                                      log_domain()),
       ok;
     false ->
