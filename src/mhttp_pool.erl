@@ -35,16 +35,22 @@
 -type state() ::
         #{id := mhttp:pool_id(),
           options := options(),
-          clients_by_key := ets:tid(),
-          clients_by_pid := ets:tid()}.
+          clients := #{pid() := client()},
+          free_clients := #{mhttp:client_key() := [pid()]}}.
+
+-type client() ::
+        #{key := mhttp:client_key(),
+          pid := pid(),
+          acquisition_time => integer(), % millisecond timestamp
+          call_id => term(),
+          canonic_request => mhttp:request()}.
 
 -spec process_name(mhttp:pool_id()) -> atom().
 process_name(Id) ->
   Name = <<"mhttp_pool_", (atom_to_binary(Id))/binary>>,
   binary_to_atom(Name).
 
--spec start_link(mhttp:pool_id(), options()) -> Result when
-    Result :: {ok, pid()} | ignore | {error, term()}.
+-spec start_link(mhttp:pool_id(), options()) -> et_gen_server:start_ret().
 start_link(Id, Options) ->
   Name = process_name(Id),
   gen_server:start_link({local, Name}, ?MODULE, [Id, Options], []).
@@ -55,14 +61,12 @@ stop(Id) ->
   gen_server:stop(Name).
 
 -spec send_request(ref(), mhttp:request()) ->
-        {ok, mhttp:response() | {upgraded, mhttp:response(), pid()}} |
-        {error, term()}.
+        mhttp:result(mhttp:response_result()).
 send_request(Ref, Request) ->
   send_request(Ref, Request, #{}).
 
 -spec send_request(ref(), mhttp:request(), mhttp:request_options()) ->
-        {ok, mhttp:response() | {upgraded, mhttp:response(), pid()}} |
-        {error, term()}.
+        mhttp:result(mhttp:response_result()).
 send_request(Ref, Request, Options) ->
   gen_server:call(Ref, {send_request, Request, Options}, infinity).
 
@@ -70,18 +74,11 @@ send_request(Ref, Request, Options) ->
 init([Id, Options]) ->
   logger:update_process_metadata(#{domain => [mhttp, pool, Id]}),
   process_flag(trap_exit, true),
-  ClientsByKey = ets:new(ets_table_name(<<"clients_by_key">>, Id), [bag]),
-  ClientsByPid = ets:new(ets_table_name(<<"clients_by_pid">>, Id), [set]),
   State = #{id => Id,
             options => Options,
-            clients_by_key => ClientsByKey,
-            clients_by_pid => ClientsByPid},
+            clients => #{},
+            free_clients => #{}},
   {ok, State}.
-
--spec ets_table_name(Table :: binary(), mhttp:pool_id()) -> atom().
-ets_table_name(Table, Id) ->
-  Bin = <<"mhttp_pool_", (atom_to_binary(Id))/binary, "__", Table/binary>>,
-  binary_to_atom(Bin).
 
 -spec handle_call(term(), {pid(), et_gen_server:request_id()}, state()) ->
         et_gen_server:handle_call_ret(state()).
@@ -107,12 +104,10 @@ handle_cast(Msg, State) ->
 
 -spec handle_info(term(), state()) -> et_gen_server:handle_info_ret(state()).
 handle_info({'EXIT', Pid, normal}, State) ->
-  delete_client(State, Pid),
-  {noreply, State};
+  {noreply, delete_client(Pid, State)};
 handle_info({'EXIT', Pid, Reason}, State) ->
   ?LOG_ERROR("client ~p exited:~n~tp", [Pid, Reason]),
-  delete_client(State, Pid),
-  {noreply, State};
+  {noreply, delete_client(Pid, State)};
 handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
   {noreply, State}.
@@ -141,19 +136,23 @@ send_request_1(CanonicRequest, Options, NbRedirectionsLeft, State) ->
   NetrcEntry = netrc_entry(CanonicRequest, State),
   {Target, Key} = request_target_and_key(CanonicRequest, NetrcEntry),
   Credentials = netrc_credentials(NetrcEntry),
-  Client = get_or_create_client(State, Key, Credentials),
+  {ClientPid, State2} = get_or_create_client(Key, Credentials, State),
   Request = CanonicRequest#{target => Target},
-  case mhttp_client:send_request(Client, Request, Options) of
+  case mhttp_client:send_request(ClientPid, Request, Options) of
     {ok, Response} when is_map(Response) ->
+      State3 = release_client(ClientPid, State2),
       case redirection_uri(Response, Options) of
         undefined ->
-          {Response, State};
+          {Response, State3};
         URI ->
           NextRequest = mhttp_request:redirect(CanonicRequest, Response, URI),
-          send_request_1(NextRequest, Options, NbRedirectionsLeft-1, State)
+          send_request_1(NextRequest, Options, NbRedirectionsLeft-1, State3)
       end;
     {ok, {upgraded, Response, Pid}} ->
-      {{upgraded, Response, Pid}, State};
+      %% Clients stop after returning an {upgraded, _, _} response, so we are
+      %% going to receive an EXIT signal and remove the process from the busy
+      %% pool.
+      {{upgraded, Response, Pid}, State2};
     {error, Reason} ->
       throw({error, Reason})
   end.
@@ -175,31 +174,39 @@ redirection_uri(Response, Options) ->
       undefined
   end.
 
--spec get_or_create_client(state(), mhttp:client_key(),
-                           mhttp:credentials()) ->
-        mhttp_client:ref().
-get_or_create_client(State = #{options := Options,
-                               clients_by_key := ClientsByKey,
-                               clients_by_pid := ClientsByPid},
-                     Key,
-                     Credentials) ->
-  MaxConns = maps:get(max_connections_per_key, Options, 1),
-  case ets:lookup(ClientsByKey, Key) of
-    Entries when length(Entries) < MaxConns ->
-      Pid = create_client(State, Key, Credentials),
-      ets:insert(ClientsByKey, {Key, Pid}),
-      ets:insert(ClientsByPid, {Pid, Key}),
-      ?LOG_DEBUG("added new client ~p (~p)", [Key, Pid]),
-      Pid;
-    Entries ->
-      {_, Pid} = lists:nth(rand:uniform(length(Entries)), Entries),
-      Pid
+-spec get_or_create_client(mhttp:client_key(), mhttp:credentials(),
+                           state()) ->
+        {pid(), state()}.
+get_or_create_client(Key, Credentials,
+                     State = #{options := Options,
+                               clients := Clients,
+                               free_clients := FreeClients}) ->
+  case maps:find(Key, FreeClients) of
+    {ok, Pids} ->
+      N = rand:uniform(length(Pids)),
+      {Before, [Pid | After]} = lists:split(N-1, Pids),
+      Pids2 = Before ++ After,
+      ?LOG_DEBUG("acquiring client ~p for ~p", [Pid, Key]),
+      Client = maps:get(Pid, Clients),
+      %% call_id, canonic_request
+      Client2 = Client#{acquisition_time => os:system_time(millisecond)},
+      {Pid, State#{clients => Clients#{Pid => Client2},
+                   free_clients => FreeClients#{Key => Pids2}}};
+    error ->
+      _MaxConns = maps:get(max_connections_per_key, Options, 1),
+      %% TODO Respect MaxConns
+      Pid = create_client(Key, Credentials, State),
+      ?LOG_DEBUG("adding new client ~p for ~p", [Pid, Key]),
+      %% call_id, canonic_request
+      Client = #{key => Key,
+                 pid => Pid,
+                 acquisition_time => os:system_time(millisecond)},
+      {Pid, State#{clients => Clients#{Pid => Client}}}
   end.
 
--spec create_client(state(), mhttp:client_key(), mhttp:credentials()) ->
-        mhttp_client:ref().
-create_client(#{id := Id, options := Options}, {Host, Port, Transport},
-              Credentials) ->
+-spec create_client(mhttp:client_key(), mhttp:credentials(), state()) -> pid().
+create_client({Host, Port, Transport}, Credentials,
+              #{id := Id, options := Options}) ->
   %% Note that credentials supplied in client options override internal
   %% credentials (which are in the current state obtained from a netrc file).
   CACertificateBundlePath =
@@ -219,16 +226,26 @@ create_client(#{id := Id, options := Options}, {Host, Port, Transport},
       throw({error, Reason})
   end.
 
--spec delete_client(state(), pid()) -> ok.
-delete_client(#{clients_by_key := ClientsByKey,
-                clients_by_pid := ClientsByPid}, Pid) ->
-  case ets:lookup(ClientsByPid, Pid) of
-    [{Pid, Key}] ->
-      ets:delete_object(ClientsByKey, {Key, Pid}),
-      ets:delete(ClientsByPid, Pid),
-      ok;
-    [] ->
-      ok
+-spec release_client(pid(), state()) -> state().
+release_client(Pid, State = #{clients := Clients,
+                              free_clients := FreeClients}) ->
+  (Client = #{key := Key}) = maps:get(Pid, Clients),
+  Pids = maps:get(Key, FreeClients, []),
+  Client2 = maps:without([acquisition_time, call_id, canonic_request],
+                         Client),
+  State#{clients => Clients#{Pid => Client2},
+         free_clients => FreeClients#{Key => [Pid | Pids]}}.
+
+-spec delete_client(pid(), state()) -> state().
+delete_client(Pid, State = #{clients := Clients,
+                             free_clients := FreeClients}) ->
+  case maps:find(Pid, Clients) of
+    {ok, #{key := Key}} ->
+      Pids = maps:get(Key, FreeClients),
+      State#{clients => maps:remove(Pid, Clients),
+             free_clients => FreeClients#{Key => lists:delete(Pid, Pids)}};
+    error ->
+      State
   end.
 
 -spec request_target_and_key(mhttp:request(), netrc:entry() | undefined) ->
