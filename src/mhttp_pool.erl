@@ -42,8 +42,12 @@
         #{key := mhttp:client_key(),
           pid := pid(),
           acquisition_time => integer(), % millisecond timestamp
-          call_id => term(),
-          canonic_request => mhttp:request()}.
+          current_request_data => request_data()}.
+
+-type request_data() ::
+        #{request := mhttp:request(),
+          source := pid(),
+          tag := term()}.
 
 -spec process_name(mhttp:pool_id()) -> atom().
 process_name(Id) ->
@@ -82,9 +86,12 @@ init([Id, Options]) ->
 
 -spec handle_call(term(), {pid(), et_gen_server:request_id()}, state()) ->
         et_gen_server:handle_call_ret(state()).
-handle_call({send_request, Request0, Options}, _From, State) ->
+handle_call({send_request, Request0, Options}, {Source, Tag}, State) ->
   try
-    {Result, State2} = handle_send_request(Request0, Options, State),
+    RequestData = #{request => Request0,
+                    source => Source,
+                    tag => Tag},
+    {Result, State2} = handle_send_request(RequestData, Options, State),
     {reply, {ok, Result}, State2}
   catch
     throw:{error, Reason} ->
@@ -112,23 +119,25 @@ handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
   {noreply, State}.
 
--spec handle_send_request(mhttp:request(), mhttp:request_options(), state()) ->
+-spec handle_send_request(request_data(), mhttp:request_options(), state()) ->
         {mhttp:response_result(), state()}.
-handle_send_request(Request, Options, State) ->
+handle_send_request(RequestData = #{request := Request}, Options, State) ->
   case mhttp_request:canonicalize_target(Request) of
     {ok, CanonicRequest} ->
+      RequestData2 = RequestData#{request => CanonicRequest},
       MaxNbRedirections = maps:get(max_nb_redirections, Options, 5),
-      send_request_1(CanonicRequest, Options, MaxNbRedirections, State);
+      send_request_1(RequestData2, Options, MaxNbRedirections, State);
     {error, Reason} ->
       throw({error, Reason})
   end.
 
--spec send_request_1(mhttp:request(), mhttp:request_options(),
+-spec send_request_1(request_data(), mhttp:request_options(),
                       NbRedirectionsLeft :: non_neg_integer(), state()) ->
         {mhttp:response_result(), state()}.
-send_request_1(_Request, _Options, 0, _State) ->
+send_request_1(_RequestData, _Options, 0, _State) ->
   throw({error, too_many_redirections});
-send_request_1(CanonicRequest, Options, NbRedirectionsLeft, State) ->
+send_request_1(RequestData = #{request := CanonicRequest}, Options,
+               NbRedirectionsLeft, State) ->
   %% The actual request sent is derived from the canonic request. We only keep
   %% the path, query and fragment. We still need the canonic request to
   %% compute a potential redirection target since the URI reference resolution
@@ -136,7 +145,8 @@ send_request_1(CanonicRequest, Options, NbRedirectionsLeft, State) ->
   NetrcEntry = netrc_entry(CanonicRequest, State),
   {Target, Key} = request_target_and_key(CanonicRequest, NetrcEntry),
   Credentials = netrc_credentials(NetrcEntry),
-  {ClientPid, State2} = get_or_create_client(Key, Credentials, State),
+  {ClientPid, State2} = get_or_create_client(RequestData, Key, Credentials,
+                                             State),
   Request = CanonicRequest#{target => Target},
   case mhttp_client:send_request(ClientPid, Request, Options) of
     {ok, Response} when is_map(Response) ->
@@ -146,7 +156,8 @@ send_request_1(CanonicRequest, Options, NbRedirectionsLeft, State) ->
           {Response, State3};
         URI ->
           NextRequest = mhttp_request:redirect(CanonicRequest, Response, URI),
-          send_request_1(NextRequest, Options, NbRedirectionsLeft-1, State3)
+          RequestData2 = RequestData#{request => NextRequest},
+          send_request_1(RequestData2, Options, NbRedirectionsLeft-1, State3)
       end;
     {ok, {upgraded, Response, Pid}} ->
       %% Clients stop after returning an {upgraded, _, _} response, so we are
@@ -174,10 +185,10 @@ redirection_uri(Response, Options) ->
       undefined
   end.
 
--spec get_or_create_client(mhttp:client_key(), mhttp:credentials(),
-                           state()) ->
+-spec get_or_create_client(request_data(), mhttp:client_key(),
+                           mhttp:credentials(), state()) ->
         {pid(), state()}.
-get_or_create_client(Key, Credentials,
+get_or_create_client(RequestData, Key, Credentials,
                      State = #{options := Options,
                                clients := Clients,
                                free_clients := FreeClients}) ->
@@ -188,8 +199,9 @@ get_or_create_client(Key, Credentials,
       Pids2 = Before ++ After,
       ?LOG_DEBUG("acquiring client ~p for ~p", [Pid, Key]),
       Client = maps:get(Pid, Clients),
-      %% call_id, canonic_request
-      Client2 = Client#{acquisition_time => os:system_time(millisecond)},
+      Client2 = Client#{acquisition_time => os:system_time(millisecond),
+                        current_request_data => RequestData},
+      ?LOG_DEBUG("client: ~tp~n", [Client2]),
       {Pid, State#{clients => Clients#{Pid => Client2},
                    free_clients => FreeClients#{Key => Pids2}}};
     error ->
@@ -197,10 +209,11 @@ get_or_create_client(Key, Credentials,
       %% TODO Respect MaxConns
       Pid = create_client(Key, Credentials, State),
       ?LOG_DEBUG("adding new client ~p for ~p", [Pid, Key]),
-      %% call_id, canonic_request
       Client = #{key => Key,
                  pid => Pid,
-                 acquisition_time => os:system_time(millisecond)},
+                 acquisition_time => os:system_time(millisecond),
+                 current_request_data => RequestData},
+      ?LOG_DEBUG("client: ~tp~n", [Client]),
       {Pid, State#{clients => Clients#{Pid => Client}}}
   end.
 
@@ -231,8 +244,7 @@ release_client(Pid, State = #{clients := Clients,
                               free_clients := FreeClients}) ->
   (Client = #{key := Key}) = maps:get(Pid, Clients),
   Pids = maps:get(Key, FreeClients, []),
-  Client2 = maps:without([acquisition_time, call_id, canonic_request],
-                         Client),
+  Client2 = maps:without([acquisition_time, current_request_data], Client),
   State#{clients => Clients#{Pid => Client2},
          free_clients => FreeClients#{Key => [Pid | Pids]}}.
 
