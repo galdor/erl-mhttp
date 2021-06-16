@@ -174,8 +174,8 @@ process_result(ClientPid, Result, State) ->
                 send_request_1(NextRequest, Context2, State2)
             end
         end;
-      {ok, Result = {upgraded, _, _}} ->
-        reply({ok, Result}, Client),
+      {ok, UpgradedResult = {upgraded, _, _}} ->
+        reply({ok, UpgradedResult}, Client),
         State2;
       {error, Reason} ->
         reply({error, Reason}, Client),
