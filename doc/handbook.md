@@ -108,8 +108,8 @@ The following pool options are available:
 - `client_options`: the set of client options used for every client in the
   pool. Note that `host`, `port` and `transport` will be overridden for each
   connection.
-- `max_connections_per_key`: the maximum number of connections established for
-  each client key (default: `1`).
+- `max_connections_per_key`: the maximum number of connections allowed for
+  each client key (default: `infinity`).
 - `request_timeout`: the amount of time after which a request is aborted and
   considered a failure in milliseconds. Requests stopped that way return a
   `request_timeout` error.

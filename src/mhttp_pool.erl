@@ -248,7 +248,7 @@ get_or_create_client(Request, Context = #{options := RequestOptions,
                    free_clients => FreeClients#{Key => Pids2}}};
     _ ->
       KeyNbClients = maps:get(Key, NbClients, 0),
-      MaxConnections = maps:get(max_connections_per_key, Options, 1),
+      MaxConnections = maps:get(max_connections_per_key, Options, infinity),
       (KeyNbClients == MaxConnections) andalso
         throw({error, {too_many_connections, Key}}),
       Pid = create_client(Key, State),
