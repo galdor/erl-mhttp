@@ -94,6 +94,11 @@ handle_call({send_request, Request, Options}, {Source, Tag}, State) ->
   catch
     throw:{error, Reason} ->
       {reply, {error, Reason}, State};
+    exit:{noproc, _Trace} ->
+      %% The client died after it has been acquired but before we sent the
+      %% gen_server call. Infortunately, at this point we do not know what
+      %% went wrong, we have not received the EXIT signal yet.
+      {reply, {error, connection_failure}, State};
     exit:{Reason, _Trace} ->
       %% Happens if the client failed (error or exit) during call processing
       {reply, {error, Reason}, State}

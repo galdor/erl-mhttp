@@ -57,6 +57,7 @@
       | {controlling_process, term()}
       | {unexpected_data, binary()}
       | {invalid_data, term()} % TODO mhttp_parser:error_reason()
+      | connection_failure % client died before we get the EXIT signal
       | term().
 
 -type pool_id() :: atom().
