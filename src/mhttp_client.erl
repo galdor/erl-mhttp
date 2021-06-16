@@ -135,7 +135,7 @@ handle_continue({send_request, Request, Options, Pid}, State) ->
 
 -spec reply(pid(), mhttp:request_result()) -> ok.
 reply(Pid, Result) ->
-  Pid ! {send_request_result, self(), Result},
+  Pid ! {request_result, self(), Result},
   ok.
 
 -spec options_transport(options()) -> mhttp:transport().

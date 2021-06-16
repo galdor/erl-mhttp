@@ -30,6 +30,7 @@
 -type options() ::
         #{client_options => mhttp_client:options(),
           max_connections_per_key => pos_integer(),
+          request_timeout => pos_integer(),
           use_netrc => boolean()}.
 
 -type state() ::
@@ -44,7 +45,8 @@
           pid := pid(),
           acquisition_time => integer(), % millisecond timestamp
           request => mhttp:request(),
-          request_context => request_context()}.
+          request_context => request_context(),
+          request_timeout_timer => reference()}.
 
 -type request_context() ::
         #{options := mhttp:request_options(),
@@ -111,8 +113,10 @@ handle_cast(Msg, State) ->
   {noreply, State}.
 
 -spec handle_info(term(), state()) -> et_gen_server:handle_info_ret(state()).
-handle_info({send_request_result, ClientPid, Result}, State) ->
-  {noreply, process_result(ClientPid, Result, State)};
+handle_info({request_result, ClientPid, Result}, State) ->
+  {noreply, process_request_result(ClientPid, Result, State)};
+handle_info({request_timeout, ClientPid, Tag}, State) ->
+  {noreply, process_request_timeout(ClientPid, Tag, State)};
 handle_info({'EXIT', Pid, normal}, State) ->
   {noreply, handle_client_exit(Pid, normal, State)};
 handle_info({'EXIT', Pid, {Reason, Trace}}, State) when is_list(Trace) ->
@@ -156,8 +160,9 @@ send_request_1(Request, Context = #{options := Options}, State) ->
       throw({error, ExitReason})
   end.
 
--spec process_result(pid(), mhttp:request_result(), state()) -> state().
-process_result(ClientPid, Result, State) ->
+-spec process_request_result(pid(), mhttp:request_result(), state()) ->
+        state().
+process_request_result(ClientPid, Result, State) ->
   {Client, State2} = release_client(ClientPid, State),
   try
     Context = maps:get(request_context, Client),
@@ -192,6 +197,17 @@ process_result(ClientPid, Result, State) ->
       State2
   end.
 
+-spec process_request_timeout(pid(), reference(), state()) ->
+        state().
+process_request_timeout(ClientPid, Tag, State = #{clients := Clients}) ->
+  case maps:find(ClientPid, Clients) of
+    {ok, #{request_context := #{tag := Tag}}} ->
+      exit(ClientPid, request_timeout),
+      State;
+    error ->
+      State
+  end.
+
 -spec redirection_uri(mhttp:response(), mhttp:request_options()) ->
         uri:uri() | undefined.
 redirection_uri(Response, Options) ->
@@ -211,7 +227,7 @@ redirection_uri(Response, Options) ->
 
 -spec get_or_create_client(mhttp:request(), request_context(), state()) ->
         {pid(), state()}.
-get_or_create_client(Request, Context,
+get_or_create_client(Request, Context = #{tag := Tag},
                      State = #{options := Options,
                                clients := Clients,
                                free_clients := FreeClients,
@@ -236,11 +252,15 @@ get_or_create_client(Request, Context,
         throw({error, {too_many_connections, Key}}),
       Pid = create_client(Key, State),
       ?LOG_DEBUG("adding new client ~p for ~p", [Pid, Key]),
+      RequestTimeout = maps:get(request_timeout, Options, 30000),
+      RequestTimeoutTimer = erlang:send_after(RequestTimeout, self(),
+                                              {request_timeout, Pid, Tag}),
       Client = #{key => Key,
                  pid => Pid,
                  acquisition_time => os:system_time(millisecond),
                  request => Request,
-                 request_context => Context},
+                 request_context => Context,
+                 request_timeout_timer => RequestTimeoutTimer},
       {Pid, State#{clients => Clients#{Pid => Client},
                    nb_clients => NbClients#{Key => KeyNbClients+1}}}
   end.
@@ -266,7 +286,9 @@ create_client({Host, Port, Transport}, #{id := Id, options := Options}) ->
 release_client(Pid, State = #{clients := Clients,
                               free_clients := FreeClients}) ->
   case maps:find(Pid, Clients) of
-    {ok, Client = #{key := Key}} ->
+    {ok, Client = #{key := Key,
+                   request_timeout_timer := RequestTimeoutTimer}} ->
+      erlang:cancel_timer(RequestTimeoutTimer),
       Pids = maps:get(Key, FreeClients, []),
       Client2 = maps:without([acquisition_time, request, request_context],
                              Client),
