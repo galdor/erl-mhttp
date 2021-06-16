@@ -22,10 +22,7 @@
 -export([init/1, terminate/2,
          handle_call/3, handle_cast/2, handle_info/2, handle_continue/2]).
 
--export_type([name/0, ref/0, options/0, tcp_option/0, tls_option/0]).
-
--type name() :: et_gen_server:name().
--type ref() :: et_gen_server:ref().
+-export_type([options/0, tcp_option/0, tls_option/0]).
 
 -type options() ::
         #{host => uri:host(),
@@ -55,14 +52,14 @@
 start_link(PoolId, Options) ->
   gen_server:start_link(?MODULE, [PoolId, Options], []).
 
--spec send_request(ref(), mhttp:request()) -> mhttp:result().
-send_request(Ref, Request) ->
-  send_request(Ref, Request, #{}).
+-spec send_request(pid(), mhttp:request()) -> mhttp:result().
+send_request(Pid, Request) ->
+  send_request(Pid, Request, #{}).
 
--spec send_request(ref(), mhttp:request(), mhttp:request_options()) ->
+-spec send_request(pid(), mhttp:request(), mhttp:request_options()) ->
         mhttp:result().
-send_request(Ref, Request, Options) ->
-  gen_server:call(Ref, {send_request, Request, Options}, infinity).
+send_request(Pid, Request, Options) ->
+  gen_server:call(Pid, {send_request, Request, Options}, infinity).
 
 -spec init(list()) -> et_gen_server:init_ret(state()).
 init([PoolId, Options]) ->
