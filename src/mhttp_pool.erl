@@ -36,7 +36,8 @@
         #{id := mhttp:pool_id(),
           options := options(),
           clients := #{pid() := client()},
-          free_clients := #{mhttp:client_key() := [pid()]}}.
+          free_clients := #{mhttp:client_key() := [pid()]},
+          nb_clients := #{mhttp:client_key() := pos_integer()}}.
 
 -type client() ::
         #{key := mhttp:client_key(),
@@ -82,7 +83,8 @@ init([Id, Options]) ->
   State = #{id => Id,
             options => Options,
             clients => #{},
-            free_clients => #{}},
+            free_clients => #{},
+            nb_clients => #{}},
   {ok, State}.
 
 -spec handle_call(term(), {pid(), et_gen_server:request_id()}, state()) ->
@@ -212,7 +214,8 @@ redirection_uri(Response, Options) ->
 get_or_create_client(Request, Context,
                      State = #{options := Options,
                                clients := Clients,
-                               free_clients := FreeClients}) ->
+                               free_clients := FreeClients,
+                               nb_clients := NbClients}) ->
   Key = request_key(Request),
   case maps:find(Key, FreeClients) of
     {ok, Pids} when Pids =/= [] ->
@@ -227,8 +230,10 @@ get_or_create_client(Request, Context,
       {Pid, State#{clients => Clients#{Pid => Client2},
                    free_clients => FreeClients#{Key => Pids2}}};
     _ ->
-      _MaxConns = maps:get(max_connections_per_key, Options, 1),
-      %% TODO Respect MaxConns
+      KeyNbClients = maps:get(Key, NbClients, 0),
+      MaxConnections = maps:get(max_connections_per_key, Options, 1),
+      (KeyNbClients == MaxConnections) andalso
+        throw({error, {too_many_connections, Key}}),
       Pid = create_client(Key, State),
       ?LOG_DEBUG("adding new client ~p for ~p", [Pid, Key]),
       Client = #{key => Key,
@@ -236,7 +241,8 @@ get_or_create_client(Request, Context,
                  acquisition_time => os:system_time(millisecond),
                  request => Request,
                  request_context => Context},
-      {Pid, State#{clients => Clients#{Pid => Client}}}
+      {Pid, State#{clients => Clients#{Pid => Client},
+                   nb_clients => NbClients#{Key => KeyNbClients+1}}}
   end.
 
 -spec create_client(mhttp:client_key(), state()) -> pid().
@@ -272,9 +278,14 @@ release_client(Pid, State = #{clients := Clients,
   end.
 
 -spec handle_client_exit(pid(), term(), state()) -> state().
-handle_client_exit(Pid, ExitReason, State = #{clients := Clients}) ->
+handle_client_exit(Pid, ExitReason, State = #{clients := Clients,
+                                              nb_clients := NbClients}) ->
   case maps:find(Pid, Clients) of
     {ok, Client = #{key := Key}} ->
+      NbClients2 = case maps:get(Key, NbClients) of
+                     1 -> maps:remove(Key, NbClients);
+                     N -> NbClients#{Key => N-1}
+                   end,
       case maps:is_key(request, Client) of
         true ->
           %% If the client is busy, reply to the original request
@@ -285,7 +296,8 @@ handle_client_exit(Pid, ExitReason, State = #{clients := Clients}) ->
             _ ->
               reply({error, ExitReason}, Client)
           end,
-          State#{clients => maps:remove(Pid, Clients)};
+          State#{clients => maps:remove(Pid, Clients),
+                 nb_clients => NbClients2};
         false ->
           %% If the client is free, remove it from the list of free clients
           FreeClients = maps:get(free_clients, State),
@@ -295,7 +307,8 @@ handle_client_exit(Pid, ExitReason, State = #{clients := Clients}) ->
                            Pids2 -> FreeClients#{Key => Pids2}
                          end,
           State#{clients => maps:remove(Pid, Clients),
-                 free_clients => FreeClients2}
+                 free_clients => FreeClients2,
+                 nb_clients => NbClients2}
         end;
     error ->
       State

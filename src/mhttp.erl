@@ -58,6 +58,7 @@
       | {unexpected_data, binary()}
       | {invalid_data, term()} % TODO mhttp_parser:error_reason()
       | connection_failure % client died before we get the EXIT signal
+      | {too_many_connections, client_key()}
       | term().
 
 -type pool_id() :: atom().
