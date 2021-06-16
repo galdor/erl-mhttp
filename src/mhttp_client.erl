@@ -102,6 +102,7 @@ handle_call({send_request, Request, Options}, _From, State) ->
       {stop, normal, {ok, Result}, State2}
   catch
     throw:{error, Reason} ->
+      ?LOG_ERROR("request error: ~tp", [Reason]),
       {stop, Reason, {error, Reason}, State}
   end;
 handle_call(Msg, From, State) ->
@@ -170,7 +171,7 @@ connect(PoolId, Options) ->
                 parser => mhttp_parser:new(response)},
       {ok, State};
     {error, Reason} ->
-      ?LOG_ERROR("connection failed: ~p", [Reason]),
+      ?LOG_ERROR("connection error: ~tp", [Reason]),
       {error, {connect, Reason}}
   end.
 
