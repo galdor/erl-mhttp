@@ -276,8 +276,12 @@ delete_client(Pid, State = #{clients := Clients,
   case maps:find(Pid, Clients) of
     {ok, #{key := Key}} ->
       Pids = maps:get(Key, FreeClients),
+      FreeClients2 = case lists:delete(Pid, Pids) of
+                       [] -> maps:remove(Key, FreeClients);
+                       Pids2 -> FreeClients#{Key => Pids2}
+                     end,
       State#{clients => maps:remove(Pid, Clients),
-             free_clients => FreeClients#{Key => lists:delete(Pid, Pids)}};
+             free_clients => FreeClients2};
     error ->
       State
   end.
