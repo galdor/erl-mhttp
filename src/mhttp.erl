@@ -83,7 +83,8 @@
                              follow_redirections => boolean(),
                              max_nb_redirections => pos_integer(),
                              protocol => protocol(),
-                             protocol_options => protocol_options()}.
+                             protocol_options => protocol_options(),
+                             timeout => pos_integer()}.
 
 -type response() :: #{version => version(),
                       status := status(),

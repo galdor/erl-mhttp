@@ -111,8 +111,8 @@ The following pool options are available:
 - `max_connections_per_key`: the maximum number of connections established for
   each client key (default: `1`).
 - `request_timeout`: the amount of time after which a request is aborted and
-  considered a failure. Requests stopped that way return a `request_timeout`
-  error.
+  considered a failure in milliseconds. Requests stopped that way return a
+  `request_timeout` error.
 - `use_netrc`: load and use credentials from the netrc file of the current
   user.
 

@@ -227,7 +227,8 @@ redirection_uri(Response, Options) ->
 
 -spec get_or_create_client(mhttp:request(), request_context(), state()) ->
         {pid(), state()}.
-get_or_create_client(Request, Context = #{tag := Tag},
+get_or_create_client(Request, Context = #{options := RequestOptions,
+                                          tag := Tag},
                      State = #{options := Options,
                                clients := Clients,
                                free_clients := FreeClients,
@@ -252,7 +253,7 @@ get_or_create_client(Request, Context = #{tag := Tag},
         throw({error, {too_many_connections, Key}}),
       Pid = create_client(Key, State),
       ?LOG_DEBUG("adding new client ~p for ~p", [Pid, Key]),
-      RequestTimeout = maps:get(request_timeout, Options, 30000),
+      RequestTimeout = request_timeout(RequestOptions, State),
       RequestTimeoutTimer = erlang:send_after(RequestTimeout, self(),
                                               {request_timeout, Pid, Tag}),
       Client = #{key => Key,
@@ -438,3 +439,9 @@ netrc_entry(Request, #{options := Options}) ->
     false ->
       error
   end.
+
+-spec request_timeout(mhttp:request_options(), state()) -> pos_integer().
+request_timeout(#{timeout := Timeout}, _) ->
+  Timeout;
+request_timeout(_, #{options := Options}) ->
+  maps:get(request_timeout, Options, 30000).
