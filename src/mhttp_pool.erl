@@ -369,7 +369,7 @@ maybe_apply_netrc_entry_credentials(Request, #{login := Login,
 finalize_request(Request) ->
   Target = mhttp_request:target_uri(Request),
   Target2 = maps:without([scheme, userinfo, host, port], Target),
-  Request#{target => mhttp_uri:path(Target2)}.
+  Request#{target => Target2#{path => mhttp_uri:path(Target2)}}.
 
 -spec netrc_entry(mhttp:request(), state()) -> {ok, netrc:entry()} | error.
 netrc_entry(Request, #{options := Options}) ->
