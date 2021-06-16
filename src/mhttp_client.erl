@@ -37,7 +37,6 @@
           header => mhttp:header(),
           compression => boolean(),
           log_requests => boolean(),
-          credentials => mhttp:credentials(),
           ca_certificate_bundle_path => file:name_all() | undefined}.
 
 -type tcp_option() :: gen_tcp:connect_option().
@@ -215,7 +214,6 @@ send_request_1(Request0, RequestOptions, State) ->
 finalize_request(#{options := Options}, Request, RequestOptions) ->
   Funs = [protocol_finalization_fun(RequestOptions),
           compression_finalization_fun(Options),
-          credentials_finalization_fun(Options),
           header_finalization_fun(Options),
           host_finalization_fun(Options),
           fun mhttp_request:maybe_add_content_length/1],
@@ -245,25 +243,6 @@ compression_finalization_fun(Options) ->
                   false ->
                     Header
                 end,
-      Request#{header => Header2}
-  end.
-
--spec credentials_finalization_fun(options()) ->
-        fun((mhttp:request()) -> mhttp:request()).
-credentials_finalization_fun(#{credentials := none}) ->
-  fun (Request) ->
-      Request
-  end;
-credentials_finalization_fun(#{credentials := {basic, Login, Password}}) ->
-  fun (Request) ->
-      Header = mhttp_request:header(Request),
-      Header2 = mhttp_header:add_basic_authorization(Header, Login, Password),
-      Request#{header => Header2}
-  end;
-credentials_finalization_fun(#{credentials := {bearer, Token}}) ->
-  fun (Request) ->
-      Header = mhttp_request:header(Request),
-      Header2 = mhttp_header:add_authorization(Header, <<"Bearer">>, Token),
       Request#{header => Header2}
   end.
 
