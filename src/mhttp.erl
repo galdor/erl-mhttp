@@ -24,8 +24,8 @@
               pool_id/0, server_id/0,
               transport/0, socket/0,
               client_key/0,
-              request/0, request_options/0,
-              response/0, response_result/0,
+              request/0, request_options/0, request_result/0,
+              response/0,
               msg_internal/0,
               method/0, target/0, version/0, status/0, status_name/0,
               header_name/0, header_value/0, header_field/0,
@@ -91,7 +91,10 @@
                       trailer => header(),
                       internal => msg_internal()}.
 
--type response_result() :: response() | {upgraded, response(), pid()}.
+-type request_result() ::
+        {ok, response()}
+      | {ok, {upgraded, response(), pid()}}
+      | {error, error_reason()}.
 
 -type msg_internal() :: #{original_body_size => non_neg_integer()}.
 
@@ -141,11 +144,11 @@
 start_pool(Id, Options) ->
   mhttp_pool_sup:start_pool(Id, Options).
 
--spec send_request(request()) -> result(response_result()).
+-spec send_request(request()) -> request_result().
 send_request(Request) ->
   send_request(Request, #{}).
 
--spec send_request(request(), request_options()) -> result(response_result()).
+-spec send_request(request(), request_options()) -> request_result().
 send_request(Request, Options) ->
   PoolId = maps:get(pool, Options, default),
   PoolRef = mhttp_pool:process_name(PoolId),

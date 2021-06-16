@@ -118,7 +118,7 @@ handle_continue({send_request, Request, Options, Pid}, State) ->
   try
     send_request_1(Request, Options, State)
   of
-    {Response, State2} when is_map(Response) ->
+    {{ok, Response}, State2} when is_map(Response) ->
       reply(Pid, {ok, Response}),
       case connection_needs_closing(Response) of
         true ->
@@ -126,8 +126,8 @@ handle_continue({send_request, Request, Options, Pid}, State) ->
         false ->
           {noreply, State2}
       end;
-    {Result = {upgraded, _, _}, State2} ->
-      reply(Pid, {ok, Result}),
+    {Result = {ok, {upgraded, _, _}}, State2} ->
+      reply(Pid, Result),
       {stop, normal, State2}
   catch
     throw:{error, Reason} ->
@@ -136,7 +136,7 @@ handle_continue({send_request, Request, Options, Pid}, State) ->
       {stop, Reason, State}
   end.
 
--spec reply(pid(), mhttp:result(mhttp:response_result())) -> ok.
+-spec reply(pid(), mhttp:request_result()) -> ok.
 reply(Pid, Result) ->
   Pid ! {send_request_result, self(), Result},
   ok.
@@ -209,7 +209,7 @@ host_address(Host) ->
   end.
 
 -spec send_request_1(mhttp:request(), mhttp:request_options(), state()) ->
-        {mhttp:response_result(), state()}.
+        {mhttp:request_result(), state()}.
 send_request_1(Request0, RequestOptions, State) ->
   StartTime = erlang:system_time(microsecond),
   Request = finalize_request(State, Request0, RequestOptions),
@@ -219,10 +219,10 @@ send_request_1(Request0, RequestOptions, State) ->
   log_request(Request, Response, StartTime, State2),
   case maybe_upgrade(Request, RequestOptions, Response, State2) of
     {upgraded, Pid, State3} ->
-      {{upgraded, Response, Pid}, State3};
+      {{ok, {upgraded, Response, Pid}}, State3};
     not_upgraded ->
       set_socket_active(State2, true),
-      {Response, State2}
+      {{ok, Response}, State2}
   end.
 
 -spec finalize_request(state(), mhttp:request(), mhttp:request_options()) ->

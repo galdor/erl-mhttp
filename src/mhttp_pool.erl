@@ -66,13 +66,12 @@ stop(Id) ->
   Name = process_name(Id),
   gen_server:stop(Name).
 
--spec send_request(ref(), mhttp:request()) ->
-        mhttp:result(mhttp:response_result()).
+-spec send_request(ref(), mhttp:request()) -> mhttp:request_result().
 send_request(Ref, Request) ->
   send_request(Ref, Request, #{}).
 
 -spec send_request(ref(), mhttp:request(), mhttp:request_options()) ->
-        mhttp:result(mhttp:response_result()).
+        mhttp:request_result().
 send_request(Ref, Request, Options) ->
   gen_server:call(Ref, {send_request, Request, Options}, infinity).
 
@@ -121,7 +120,7 @@ handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
   {noreply, State}.
 
--spec reply(mhttp:result(mhttp:response_result()), client()) -> ok.
+-spec reply(mhttp:request_result(), client()) -> ok.
 reply(Result, #{request_context := #{source := Pid, tag := Tag}}) ->
   gen_server:reply({Pid, Tag}, Result),
   ok.
@@ -152,8 +151,7 @@ send_request_1(Request, Context = #{options := Options}, State) ->
       throw({error, ExitReason})
   end.
 
--spec process_result(pid(), mhttp:result(mhttp:response_result()), state()) ->
-        state().
+-spec process_result(pid(), mhttp:request_result(), state()) -> state().
 process_result(ClientPid, Result, State) ->
   {Client, State2} = release_client(ClientPid, State),
   try
