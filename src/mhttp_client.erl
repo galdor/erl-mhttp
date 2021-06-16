@@ -19,7 +19,8 @@
 -behaviour(gen_server).
 
 -export([start_link/2, send_request/2, send_request/3]).
--export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
+-export([init/1, terminate/2,
+         handle_call/3, handle_cast/2, handle_info/2, handle_continue/2]).
 
 -export_type([name/0, ref/0, options/0, tcp_option/0, tls_option/0]).
 
@@ -54,13 +55,12 @@
 start_link(PoolId, Options) ->
   gen_server:start_link(?MODULE, [PoolId, Options], []).
 
--spec send_request(ref(), mhttp:request()) ->
-        mhttp:result(mhttp:response_result()).
+-spec send_request(ref(), mhttp:request()) -> mhttp:result().
 send_request(Ref, Request) ->
   send_request(Ref, Request, #{}).
 
 -spec send_request(ref(), mhttp:request(), mhttp:request_options()) ->
-        mhttp:result(mhttp:response_result()).
+        mhttp:result().
 send_request(Ref, Request, Options) ->
   gen_server:call(Ref, {send_request, Request, Options}, infinity).
 
@@ -89,22 +89,8 @@ terminate(_Reason, State = #{socket := Socket}) ->
 
 -spec handle_call(term(), {pid(), et_gen_server:request_id()}, state()) ->
         et_gen_server:handle_call_ret(state()).
-handle_call({send_request, Request, Options}, _From, State) ->
-  try send_request_1(Request, Options, State) of
-    {Response, State2} when is_map(Response) ->
-      case connection_needs_closing(Response) of
-        true ->
-          {stop, normal, {ok, Response}, State2};
-        false ->
-          {reply, {ok, Response}, State2}
-      end;
-    {Result = {upgraded, _, _}, State2} ->
-      {stop, normal, {ok, Result}, State2}
-  catch
-    throw:{error, Reason} ->
-      ?LOG_ERROR("request error: ~tp", [Reason]),
-      {stop, Reason, {error, Reason}, State}
-  end;
+handle_call({send_request, Request, Options}, {Pid, _}, State) ->
+  {reply, ok, State, {continue, {send_request, Request, Options, Pid}}};
 handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),
   {reply, unhandled, State}.
@@ -125,6 +111,35 @@ handle_info({Event, _Socket, Data}, _State) when Event =:= tcp;
 handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
   {noreply, State}.
+
+-spec handle_continue(term(), state()) ->
+        et_gen_server:handle_continue_ret(state()).
+handle_continue({send_request, Request, Options, Pid}, State) ->
+  try
+    send_request_1(Request, Options, State)
+  of
+    {Response, State2} when is_map(Response) ->
+      reply(Pid, {ok, Response}),
+      case connection_needs_closing(Response) of
+        true ->
+          {stop, normal, State2};
+        false ->
+          {noreply, State2}
+      end;
+    {Result = {upgraded, _, _}, State2} ->
+      reply(Pid, {ok, Result}),
+      {stop, normal, State2}
+  catch
+    throw:{error, Reason} ->
+      ?LOG_ERROR("request error: ~tp", [Reason]),
+      reply(Pid, {error, Reason}),
+      {stop, Reason, State}
+  end.
+
+-spec reply(pid(), mhttp:result(mhttp:response_result())) -> ok.
+reply(Pid, Result) ->
+  Pid ! {send_request_result, self(), Result},
+  ok.
 
 -spec options_transport(options()) -> mhttp:transport().
 options_transport(Options) ->
@@ -148,7 +163,7 @@ options_host(Options) ->
 options_port(Options) ->
   maps:get(port, Options, 80).
 
--spec connect(mhttp:pool_id(), options()) -> {ok, state()} | {error, term()}.
+-spec connect(mhttp:pool_id(), options()) -> mhttp:result(state()).
 connect(PoolId, Options) ->
   Transport = options_transport(Options),
   Host = options_host(Options),

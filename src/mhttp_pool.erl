@@ -46,8 +46,10 @@
           request_context => request_context()}.
 
 -type request_context() ::
-        #{source := pid(),
-          tag := term()}.
+        #{options := mhttp:request_options(),
+          source := pid(),
+          tag := term(),
+          max_nb_redirections := non_neg_integer()}.
 
 -spec process_name(mhttp:pool_id()) -> atom().
 process_name(Id) ->
@@ -88,19 +90,14 @@ init([Id, Options]) ->
         et_gen_server:handle_call_ret(state()).
 handle_call({send_request, Request, Options}, {Source, Tag}, State) ->
   try
-    Context = #{source => Source, tag => Tag},
-    {Result, State2} = handle_send_request(Request, Context, Options, State),
-    {reply, {ok, Result}, State2}
+    MaxNbRedirections = maps:get(max_nb_redirections, Options, 5),
+    Context = #{options => Options,
+                source => Source,
+                tag => Tag,
+                max_nb_redirections => MaxNbRedirections},
+    {noreply, send_request_1(Request, Context, State)}
   catch
     throw:{error, Reason} ->
-      {reply, {error, Reason}, State};
-    exit:{noproc, _Trace} ->
-      %% The client died after it has been acquired but before we sent the
-      %% gen_server call. Infortunately, at this point we do not know what
-      %% went wrong, we have not received the EXIT signal yet.
-      {reply, {error, connection_failure}, State};
-    exit:{Reason, _Trace} ->
-      %% Happens if the client failed (error or exit) during call processing
       {reply, {error, Reason}, State}
   end;
 handle_call(Msg, From, State) ->
@@ -113,6 +110,8 @@ handle_cast(Msg, State) ->
   {noreply, State}.
 
 -spec handle_info(term(), state()) -> et_gen_server:handle_info_ret(state()).
+handle_info({send_request_result, ClientPid, Result}, State) ->
+  {noreply, process_result(ClientPid, Result, State)};
 handle_info({'EXIT', Pid, normal}, State) ->
   {noreply, delete_client(Pid, State)};
 handle_info({'EXIT', Pid, Reason}, State) ->
@@ -122,44 +121,72 @@ handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
   {noreply, State}.
 
--spec handle_send_request(mhttp:request(), request_context(),
-                          mhttp:request_options(), state()) ->
-        {mhttp:response_result(), state()}.
-handle_send_request(Request, Context, Options, State) ->
-  MaxNbRedirections = maps:get(max_nb_redirections, Options, 5),
-  send_request_1(Request, Context, Options, MaxNbRedirections, State).
+-spec reply(mhttp:result(mhttp:response_result()), client()) -> ok.
+reply(Result, #{request_context := #{source := Pid, tag := Tag}}) ->
+  gen_server:reply({Pid, Tag}, Result),
+  ok.
 
--spec send_request_1(mhttp:request(), request_context(),
-                     mhttp:request_options(),
-                     NbRedirectionsLeft :: non_neg_integer(), state()) ->
-        {mhttp:response_result(), state()}.
-send_request_1(_Request, _Context, _Options, 0, _State) ->
-  throw({error, too_many_redirections});
-send_request_1(Request, Context, Options, NbRedirectionsLeft, State) ->
-  PreparedRequest = prepare_request(Request, State),
-  {ClientPid, State2} = get_or_create_client(PreparedRequest, Context, State),
-  %% The final request is just the prepared request with the normalized target
-  %% (i.e. the path, query and fragment).
-  FinalRequest = finalize_request(PreparedRequest),
-  case mhttp_client:send_request(ClientPid, FinalRequest, Options) of
-    {ok, Response} when is_map(Response) ->
-      State3 = release_client(ClientPid, State2),
-      case redirection_uri(Response, Options) of
-        undefined ->
-          {Response, State3};
-        URI ->
-          %% Redirection requires the full target
-          NextRequest = mhttp_request:redirect(PreparedRequest, Response, URI),
-          send_request_1(NextRequest, Context, Options, NbRedirectionsLeft-1,
-                         State3)
-      end;
-    {ok, {upgraded, Response, Pid}} ->
-      %% Clients stop after returning an {upgraded, _, _} response, so we are
-      %% going to receive an EXIT signal and remove the process from the busy
-      %% pool.
-      {{upgraded, Response, Pid}, State2};
-    {error, Reason} ->
-      throw({error, Reason})
+-spec send_request_1(mhttp:request(), request_context(), state()) ->
+        state().
+send_request_1(Request, Context = #{options := Options}, State) ->
+  try
+    PreparedRequest = prepare_request(Request, State),
+    {ClientPid, State2} = get_or_create_client(PreparedRequest, Context, State),
+    %% The final request is just the prepared request with the normalized target
+    %% (i.e. the path, query and fragment).
+    FinalRequest = finalize_request(PreparedRequest),
+    case mhttp_client:send_request(ClientPid, FinalRequest, Options) of
+      ok ->
+        State2;
+      {error, Reason} ->
+        throw({error, Reason})
+    end
+  catch
+    exit:{noproc, _Trace} ->
+      %% The client died after it has been acquired but before we sent the
+      %% gen_server call. Infortunately, at this point we do not know what
+      %% went wrong, we have not received the EXIT signal yet.
+      throw({error, connection_failure});
+    exit:{ExitReason, _Trace} ->
+      %% Happens if the client failed (error or exit) during call processing
+      throw({error, ExitReason})
+  end.
+
+-spec process_result(pid(), mhttp:result(mhttp:response_result()), state()) ->
+        state().
+process_result(ClientPid, Result, State) ->
+  {Client, State2} = release_client(ClientPid, State),
+  try
+    Context = maps:get(request_context, Client),
+    case Result of
+      {ok, Response} when is_map(Response) ->
+        Options = maps:get(options, Context),
+        case redirection_uri(Response, Options) of
+          undefined ->
+            reply({ok, Response}, Client),
+            State2;
+          URI ->
+            Request = maps:get(request, Client),
+            NextRequest = mhttp_request:redirect(Request, Response, URI),
+            case maps:get(max_nb_redirections, Context) of
+              0 ->
+                throw({error, too_many_redirections});
+              N ->
+                Context2 = Context#{max_nb_redirections => N-1},
+                send_request_1(NextRequest, Context2, State2)
+            end
+        end;
+      {ok, Result = {upgraded, _, _}} ->
+        reply({ok, Result}, Client),
+        State2;
+      {error, Reason} ->
+        reply({error, Reason}, Client),
+        State2
+    end
+  catch
+    throw:{error, ThrowReason} ->
+      reply({error, ThrowReason}, Client),
+      State2
   end.
 
 -spec redirection_uri(mhttp:response(), mhttp:request_options()) ->
@@ -228,14 +255,20 @@ create_client({Host, Port, Transport}, #{id := Id, options := Options}) ->
       throw({error, Reason})
   end.
 
--spec release_client(pid(), state()) -> state().
+-spec release_client(pid(), state()) -> {client(), state()}.
 release_client(Pid, State = #{clients := Clients,
                               free_clients := FreeClients}) ->
-  (Client = #{key := Key}) = maps:get(Pid, Clients),
-  Pids = maps:get(Key, FreeClients, []),
-  Client2 = maps:without([acquisition_time, request, request_context], Client),
-  State#{clients => Clients#{Pid => Client2},
-         free_clients => FreeClients#{Key => [Pid | Pids]}}.
+  case maps:find(Pid, Clients) of
+    {ok, Client = #{key := Key}} ->
+      Pids = maps:get(Key, FreeClients, []),
+      Client2 = maps:without([acquisition_time, request, request_context],
+                             Client),
+      State2 = State#{clients => Clients#{Pid => Client2},
+                      free_clients => FreeClients#{Key => [Pid | Pids]}},
+      {Client, State2};
+    error ->
+      error({unknown_client, Pid})
+  end.
 
 -spec delete_client(pid(), state()) -> state().
 delete_client(Pid, State = #{clients := Clients,
