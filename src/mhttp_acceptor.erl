@@ -48,13 +48,11 @@ terminate(_Reason, _State) ->
 
 -spec handle_call(term(), {pid(), et_gen_server:request_id()}, state()) ->
         et_gen_server:handle_call_ret(state()).
-
 handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),
   {reply, unhandled, State}.
 
 -spec handle_cast(term(), state()) -> et_gen_server:handle_cast_ret(state()).
-
 handle_cast(accept, State = #{socket := Socket}) ->
   case gen_tcp:accept(Socket, 5000) of
     {ok, ConnSocket} ->
@@ -79,17 +77,18 @@ handle_cast(accept, State = #{socket := Socket}) ->
       ?LOG_ERROR("cannot accept connection: ~p", [Reason]),
       exit({accept_failure, Reason})
   end;
-
 handle_cast(Msg, State) ->
   ?LOG_WARNING("unhandled cast ~p", [Msg]),
   {noreply, State}.
 
 -spec handle_info(term(), state()) -> et_gen_server:handle_info_ret(state()).
-
 handle_info({'EXIT', _Pid, normal}, State) ->
   {noreply, State};
+handle_info({'EXIT', Pid, {Reason, Trace}}, State) when is_list(Trace) ->
+  ?LOG_WARNING("connection ~p exited: ~0tp~n~tp", [Pid, Reason, Trace]),
+  {noreply, State};
 handle_info({'EXIT', Pid, Reason}, State) ->
-  ?LOG_WARNING("connection ~p exited:~n~tp", [Pid, Reason]),
+  ?LOG_WARNING("connection ~p exited: ~0tp", [Pid, Reason]),
   {noreply, State};
 
 handle_info(Msg, State) ->

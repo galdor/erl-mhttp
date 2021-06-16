@@ -72,8 +72,11 @@ handle_cast(Msg, State) ->
 -spec handle_info(term(), state()) -> et_gen_server:handle_info_ret(state()).
 handle_info({'EXIT', _Pid, normal}, State) ->
   {noreply, State};
+handle_info({'EXIT', Pid, {Reason, Trace}}, State) when is_list(Trace) ->
+  ?LOG_ERROR("client ~p exited: ~0tp~n~tp", [Pid, Reason, Trace]),
+  {noreply, State};
 handle_info({'EXIT', Pid, Reason}, State) ->
-  ?LOG_ERROR("client ~p exited:~n~tp", [Pid, Reason]),
+  ?LOG_ERROR("client ~p exited: ~0tp", [Pid, Reason]),
   {noreply, State};
 handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),

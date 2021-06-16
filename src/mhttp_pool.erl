@@ -112,10 +112,13 @@ handle_cast(Msg, State) ->
 handle_info({send_request_result, ClientPid, Result}, State) ->
   {noreply, process_result(ClientPid, Result, State)};
 handle_info({'EXIT', Pid, normal}, State) ->
-  {noreply, delete_client(Pid, State)};
+  {noreply, handle_client_exit(Pid, normal, State)};
+handle_info({'EXIT', Pid, {Reason, Trace}}, State) when is_list(Trace) ->
+  ?LOG_ERROR("client ~p exited: ~0tp~n~tp", [Pid, Reason, Trace]),
+  {noreply, handle_client_exit(Pid, Reason, State)};
 handle_info({'EXIT', Pid, Reason}, State) ->
-  ?LOG_ERROR("client ~p exited:~n~tp", [Pid, Reason]),
-  {noreply, delete_client(Pid, State)};
+  ?LOG_ERROR("client ~p exited: ~0tp", [Pid, Reason]),
+  {noreply, handle_client_exit(Pid, Reason, State)};
 handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),
   {noreply, State}.
@@ -268,18 +271,32 @@ release_client(Pid, State = #{clients := Clients,
       error({unknown_client, Pid})
   end.
 
--spec delete_client(pid(), state()) -> state().
-delete_client(Pid, State = #{clients := Clients,
-                             free_clients := FreeClients}) ->
+-spec handle_client_exit(pid(), term(), state()) -> state().
+handle_client_exit(Pid, ExitReason, State = #{clients := Clients}) ->
   case maps:find(Pid, Clients) of
-    {ok, #{key := Key}} ->
-      Pids = maps:get(Key, FreeClients),
-      FreeClients2 = case lists:delete(Pid, Pids) of
-                       [] -> maps:remove(Key, FreeClients);
-                       Pids2 -> FreeClients#{Key => Pids2}
-                     end,
-      State#{clients => maps:remove(Pid, Clients),
-             free_clients => FreeClients2};
+    {ok, Client = #{key := Key}} ->
+      case maps:is_key(request, Client) of
+        true ->
+          %% If the client is busy, reply to the original request
+          case ExitReason of
+            normal ->
+              %% This is not supposed to happen
+              reply({error, connection_failure}, Client);
+            _ ->
+              reply({error, ExitReason}, Client)
+          end,
+          State#{clients => maps:remove(Pid, Clients)};
+        false ->
+          %% If the client is free, remove it from the list of free clients
+          FreeClients = maps:get(free_clients, State),
+          Pids = maps:get(Key, FreeClients),
+          FreeClients2 = case lists:delete(Pid, Pids) of
+                           [] -> maps:remove(Key, FreeClients);
+                           Pids2 -> FreeClients#{Key => Pids2}
+                         end,
+          State#{clients => maps:remove(Pid, Clients),
+                 free_clients => FreeClients2}
+        end;
     error ->
       State
   end.
