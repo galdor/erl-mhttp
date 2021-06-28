@@ -20,7 +20,8 @@
          canonicalize_target/1,
          prepend_header/2,
          ensure_host/4, maybe_add_content_length/1,
-         redirect/3, redirection_uri/2]).
+         redirect/3, redirection_uri/2,
+         accepted_media_ranges/1]).
 
 -spec method(mhttp:request()) -> mhttp:method().
 method(#{method := Method}) ->
@@ -143,3 +144,16 @@ redirection_uri(Target, URIReference) ->
     error:Reason ->
       error({invalid_uri_reference, URIReference, Reason})
   end.
+
+-spec accepted_media_ranges(mhttp:request()) ->
+        [mhttp_media_range:media_range()].
+accepted_media_ranges(Request) ->
+  Header = header(Request),
+  Values = mhttp_header:find_all_split(Header, <<"Accept">>),
+  F = fun (Value, Acc) ->
+          case mhttp_media_range:parse(Value) of
+            {ok, MediaRange} -> [MediaRange | Acc];
+            {error, _} -> Acc
+          end
+      end,
+  lists:reverse(lists:foldl(F, [], Values)).
