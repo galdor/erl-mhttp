@@ -151,3 +151,14 @@ cookies_test_() ->
                        {<<"C">>, <<"3">>}]},
                  Cookies([{<<"Cookie">>, <<"Foo=bar">>},
                           {<<"Cookie">>, <<"A=1; B=; C=3">>}]))].
+
+authorization_test_() ->
+  Auth = fun mhttp_header:authorization/1,
+  [?_assertEqual(error,
+                 Auth([])),
+   ?_assertEqual({error, {invalid_authorization, invalid_format, <<"foo">>}},
+                 Auth([{<<"Authorization">>, <<"foo">>}])),
+   ?_assertEqual({ok, <<"Basic">>, <<"Zm9vOmJhcg==">>},
+                 Auth([{<<"Authorization">>, <<"Basic Zm9vOmJhcg==">>}])),
+   ?_assertEqual({ok, <<"Bearer">>, <<"foo bar baz">>},
+                 Auth([{<<"Authorization">>, <<"Bearer foo bar baz">>}]))].

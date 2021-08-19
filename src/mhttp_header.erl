@@ -24,6 +24,7 @@
          has_connection_close/1, has_connection_upgrade/1,
          body/1,
          set_cookies/1, cookies/1,
+         authorization/1,
          add_authorization/3,
          add_basic_authorization/3]).
 
@@ -232,6 +233,24 @@ cookies(Header) ->
             end
         end,
   Fun(Values, []).
+
+-spec authorization(mhttp:header()) ->
+        {ok, Type, Credentials} | {error, Reason} | error when
+    Type :: binary(),
+    Credentials :: binary(),
+    Reason :: {invalid_authorization, invalid_format, binary()}.
+authorization(Header) ->
+  case find(Header, <<"Authorization">>) of
+    {ok, Value} ->
+      case binary:split(Value, <<" ">>) of
+        [Type, Credentials] ->
+          {ok, Type, Credentials};
+        _ ->
+          {error, {invalid_authorization, invalid_format, Value}}
+      end;
+    error ->
+      error
+  end.
 
 -spec add_authorization(mhttp:header(),
                         Type :: binary(), Credentials :: binary()) ->
