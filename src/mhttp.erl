@@ -33,7 +33,8 @@
               protocol/0, protocol_options/0,
               route_pattern/0, route/0,
               handler_fun/0, handler/0,
-              handler_router_options/0, handler_context/0,
+              handler_route_options/0, handler_router_options/0,
+              handler_context/0,
               error_handler/0]).
 
 -type result() :: ok | {error, error_reason()}.
@@ -128,15 +129,18 @@
 
 -type handler_fun() :: fun((request(), handler_context()) -> response()).
 -type handler() :: handler_fun()
+                 | {handler_fun(), handler_route_options()}
                  | {router, mhttp_router:router()}
                  | {router, mhttp_router:router(), handler_router_options()}.
--type handler_router_options() :: #{strip_path_prefix := binary()}.
+-type handler_route_options() :: #{disable_request_logging => boolean()}.
+-type handler_router_options() :: #{strip_path_prefix => binary()}.
 -type handler_context() :: #{client_address := inet:ip_address(),
                              client_port := inet:port_number(),
                              route => route(),
                              path_variables => mhttp_patterns:path_variables(),
                              start_time := integer(),
-                             request_id := binary()}.
+                             request_id := binary(),
+                             disable_request_logging => boolean()}.
 
 -type error_handler() :: fun((request(), handler_context(),
                               Reason :: term(), [et_erlang:stack_item()]) ->

@@ -163,7 +163,14 @@ call_route(Request, Context, {_, Handler}) ->
         mhttp:response().
 call_handler(Handler, Request, Context) ->
   try
-    Handler(Request, Context)
+    HandlerFun =
+      case Handler of
+        {Fun, _} when is_function(Fun) ->
+          Fun;
+        Fun when is_function(Fun) ->
+          pFun
+      end,
+    HandlerFun(Request, Context)
   catch
     throw:{http_response, ThrownResponse} ->
       ThrownResponse
@@ -202,13 +209,15 @@ schedule_idle_timeout(State = #{options := Options}) ->
 -spec log_request(mhttp:request(), mhttp:response(), mhttp:handler_context(),
                   state()) -> ok.
 log_request(Request, Response, Context, #{options := Options}) ->
-  case maps:get(log_requests, Options, true) of
-    true ->
+  LogRequests = maps:get(log_requests, Options, true),
+  DisableRequestLogging = maps:get(disable_request_logging, Context, false),
+  if
+    LogRequests and (not DisableRequestLogging) ->
       Server = maps:get(server, Options, undefined),
       mhttp_log:log_incoming_request(Request, Response, Context, Server,
                                      log_domain()),
       ok;
-    false ->
+    true ->
       ok
   end.
 

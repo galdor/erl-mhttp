@@ -29,6 +29,9 @@ find_route(#{routes := Routes}, Request, Context) ->
       case Route of
         {_, Handler} when is_function(Handler) ->
           {ok, {Route, Context#{path_variables => PathVariables}}};
+        {_, {Handler, Options}} when is_function(Handler) ->
+          Context2 = apply_handler_route_options(Options, Request, Context),
+          {ok, {Route, Context2#{path_variables => PathVariables}}};
         {_, {router, Router2}} ->
           find_route(Router2, Request, Context);
         {_, {router, Router2, Options}} ->
@@ -56,6 +59,20 @@ do_find_route([Route = {Pattern, _} | Routes], Request) ->
     {error, Reason} ->
       {error, Reason}
   end.
+
+-spec apply_handler_route_options(mhttp:handler_route_options(),
+                                  mhttp:request(), mhttp:handler_context()) ->
+        mhttp:handler_context().
+apply_handler_route_options(Options, Request, Context) ->
+  maps:fold(fun (Name, Value, Acc) ->
+                apply_handler_route_option(Name, Value, Request, Acc)
+            end, Context, Options).
+
+-spec apply_handler_route_option(Name :: atom(), Value :: term(),
+                                 mhttp:request(), mhttp:handler_context()) ->
+        mhttp:handler_context().
+apply_handler_route_option(disable_request_logging, Value, _, Context) ->
+  Context#{disable_request_logging => Value}.
 
 -spec apply_handler_router_options(mhttp:handler_router_options(),
                                    mhttp:request(), mhttp:handler_context()) ->
