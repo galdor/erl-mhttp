@@ -16,7 +16,7 @@
 
 -export([method/1, target_uri/1, target_string/1, version/1, header/1, body/1,
          trailer/1, internal/1, with_internal/2,
-         request_id/1,
+         request_id/1, request_real_client_address/1,
          canonicalize_target/1,
          prepend_header/2,
          ensure_host/4, maybe_add_content_length/1,
@@ -71,6 +71,26 @@ with_internal(Request, NewInternal) ->
 -spec request_id(mhttp:request()) -> {ok, binary()} | error.
 request_id(Request) ->
   mhttp_header:find(header(Request), <<"X-Request-Id">>).
+
+-spec request_real_client_address(mhttp:request()) ->
+        {ok, inet:ip_address()} | error.
+request_real_client_address(Request) ->
+  case mhttp_header:find(header(Request), <<"X-Forwarded-For">>) of
+    {ok, Value} ->
+      case re:split(Value, <<"\\s*,\\s*">>, [{return, list}]) of
+        [] ->
+          error;
+        [String | _] ->
+          case inet:parse_address(String) of
+            {ok, Address} ->
+              {ok, Address};
+            {error, _} ->
+              error
+          end
+      end;
+    error ->
+      error
+  end.
 
 -spec canonicalize_target(mhttp:request()) ->
         {ok, mhttp:request()} | {error, term()}.

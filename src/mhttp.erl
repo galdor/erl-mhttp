@@ -136,6 +136,7 @@
 -type handler_router_options() :: #{strip_path_prefix => binary()}.
 -type handler_context() :: #{client_address := inet:ip_address(),
                              client_port := inet:port_number(),
+                             real_client_address := inet:ip_address(),
                              route => route(),
                              path_variables => mhttp_patterns:path_variables(),
                              start_time := integer(),

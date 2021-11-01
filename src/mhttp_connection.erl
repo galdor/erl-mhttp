@@ -119,6 +119,8 @@ handle_request(Request, State = #{options := Options}) ->
               end,
   Context = #{client_address => maps:get(address, Options),
               client_port => maps:get(port, Options),
+              real_client_address =>
+                request_real_client_address(Request, State),
               start_time => Now,
               request_id => RequestId},
   {Response0, Context2} =
@@ -134,6 +136,16 @@ handle_request(Request, State = #{options := Options}) ->
   log_request(Request, Response, Context2, State),
   send_response(Response, State),
   State.
+
+-spec request_real_client_address(mhttp:request(), state()) ->
+        inet:ip_address().
+request_real_client_address(Request, #{options := Options}) ->
+  case mhttp_request:request_real_client_address(Request) of
+    {ok, Address} ->
+      Address;
+    error ->
+      maps:get(address, Options)
+  end.
 
 -spec find_and_call_route(state(), mhttp:request(), mhttp:handler_context()) ->
         {mhttp:response(), mhttp:handler_context()}.

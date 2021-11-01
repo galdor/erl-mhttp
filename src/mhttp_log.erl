@@ -22,7 +22,7 @@
     Domain :: [atom()].
 log_incoming_request(Request, Response, Context, Server, Domain) ->
   StartTime = maps:get(start_time, Context),
-  Address = maps:get(client_address, Context),
+  Address = maps:get(real_client_address, Context),
   RequestId = maps:get(request_id, Context),
   Data = #{address => inet:ntoa(Address),
            request_id => RequestId},
