@@ -180,7 +180,7 @@ call_handler(Handler, Request, Context) ->
         {Fun, _} when is_function(Fun) ->
           Fun;
         Fun when is_function(Fun) ->
-          pFun
+          Fun
       end,
     HandlerFun(Request, Context)
   catch
