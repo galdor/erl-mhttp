@@ -138,7 +138,7 @@ parse(P = #{data := Data, state := chunked_body, msg := Msg}) ->
               Body = maps:get(body, Msg, <<>>),
               Msg2 = Msg#{body => <<Body/binary, Chunk/binary>>},
               parse(P#{data => Rest2, state => chunked_body, msg => Msg2});
-            <<_:Length/binary, _/binary>> ->
+            <<_:Length/binary, _:2/binary, _/binary>> ->
               throw({error, invalid_chunk});
             _ ->
               {more, P}
