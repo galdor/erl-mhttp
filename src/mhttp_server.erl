@@ -156,9 +156,9 @@ listen(Id, Options) ->
 spawn_acceptors(State = #{options := Options, socket := Socket}) ->
   ConnOptions = connection_options(State),
   AcceptorOptions = #{socket => Socket, connection_options => ConnOptions},
-  {ok, AcceptorSup} = mhttp_acceptor_sup:start_link(AcceptorOptions),
+  {ok, AcceptorSup} = mhttp_acceptor_sup:start_link(),
   NbAcceptors = maps:get(nb_acceptors, Options, 5),
-  mhttp_acceptor_sup:start_children(AcceptorSup, NbAcceptors).
+  mhttp_acceptor_sup:start_children(AcceptorSup, NbAcceptors, AcceptorOptions).
 
 -spec connection_options(state()) -> mhttp_connection:options().
 connection_options(#{id := Id, options := Options}) ->

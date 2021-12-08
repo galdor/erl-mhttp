@@ -1,6 +1,6 @@
 [{<<"core">>,
   {git,"https://github.com/exograd/erl-core.git",
-       {ref,"a6a97a1733bea110774e3250a6a61a65a5f16829"}},
+       {ref,"16b6f0fa0b8d407e0338d7b72700b0799dcc5034"}},
   0},
  {<<"et">>,
   {git,"https://github.com/galdor/erl-et.git",

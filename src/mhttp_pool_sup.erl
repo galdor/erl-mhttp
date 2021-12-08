@@ -14,46 +14,36 @@
 
 -module(mhttp_pool_sup).
 
--behaviour(supervisor).
+-behaviour(c_sup).
 
--export([start_link/0, start_pool/2, stop_pool/1]).
--export([init/1]).
+-export([start_link/0, start_pool/2]).
+-export([children/0]).
 
--spec start_link() -> supervisor:startlink_ret().
+-spec start_link() -> c_sup:start_ret().
 start_link() ->
-  supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+  c_sup:start_link({local, ?MODULE}, ?MODULE, #{}).
 
 -spec start_pool(mhttp:pool_id(), mhttp_pool:options()) ->
-        supervisor:startchild_ret().
+        c_sup:start_child_ret().
 start_pool(Id, Options) ->
-  supervisor:start_child(?MODULE, pool_child_spec(Id, Options)).
+  c_sup:start_child(?MODULE, Id, pool_child_spec(Id, Options)).
 
--spec stop_pool(mhttp:pool_id()) -> ok.
-stop_pool(Id) ->
-  supervisor:terminate_child(?MODULE, Id),
-  supervisor:delete_child(?MODULE, Id),
-  ok.
-
-init([]) ->
-  Children = pool_child_specs(),
-  {ok, {{one_for_one, 1, 5}, Children}}.
-
--spec pool_child_specs() -> [supervisor:child_spec()].
-pool_child_specs() ->
-  EnvPoolSpecs = application:get_env(mhttp, pools, #{}),
-  PoolSpecs = case maps:is_key(default, EnvPoolSpecs) of
-                true ->
-                  EnvPoolSpecs;
-                false ->
-                  EnvPoolSpecs#{default => #{}}
-              end,
+-spec children() -> c_sup:child_specs().
+children() ->
+  Config0 = application:get_env(mhttp, pools, #{}),
+  Config =
+    case maps:is_key(default, Config0) of
+      true ->
+        Config0;
+      false ->
+        Config0#{default => #{}}
+    end,
   maps:fold(fun (Id, Options, Acc) ->
-                [pool_child_spec(Id, Options) | Acc]
-            end,
-            [], PoolSpecs).
+                [{Id, pool_child_spec(Id, Options)} | Acc]
+            end, [], Config).
 
 -spec pool_child_spec(mhttp:pool_id(), mhttp_pool:options()) ->
-        supervisor:child_spec().
+        c_sup:child_spec().
 pool_child_spec(Id, Options) ->
-  #{id => Id,
-    start => {mhttp_pool, start_link, [Id, Options]}}.
+  #{start => fun mhttp_pool:start_link/2,
+    start_args => [Id, Options]}.

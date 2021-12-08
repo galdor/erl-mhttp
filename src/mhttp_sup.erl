@@ -14,22 +14,21 @@
 
 -module(mhttp_sup).
 
--behaviour(supervisor).
+-behaviour(c_sup).
 
 -export([start_link/0]).
--export([init/1]).
+-export([children/0]).
 
+-spec start_link() -> c_sup:start_ret().
 start_link() ->
-  supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+  c_sup:start_link({local, ?MODULE}, ?MODULE, #{}).
 
-init([]) ->
-  Children = [#{id => pools,
-                start => {mhttp_pool_sup, start_link, []},
-                type => supervisor},
-              #{id => servers,
-                start => {mhttp_server_sup, start_link, []},
-                type => supervisor},
-              #{id => websocket_clients,
-                start => {mhttp_websocket_client_sup, start_link, [#{}]},
-                type => supervisor}],
-  {ok, {{one_for_one, 1, 5}, Children}}.
+-spec children() -> c_sup:child_specs().
+children() ->
+  [{pools,
+    #{start => fun mhttp_pool_sup:start_link/0}},
+   {servers,
+    #{start => fun mhttp_server_sup:start_link/0}},
+   {websocket_clients,
+    #{start => fun mhttp_websocket_client_sup:start_link/1,
+      start_args => [#{}]}}].
