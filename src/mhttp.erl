@@ -144,7 +144,7 @@
                              disable_request_logging => boolean()}.
 
 -type error_handler() :: fun((request(), handler_context(),
-                              Reason :: term(), [et_erlang:stack_item()]) ->
+                              Reason :: term(), [c_erlang:stack_item()]) ->
                                 response()).
 
 -spec start_pool(pool_id(), mhttp_pool:options()) ->

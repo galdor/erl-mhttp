@@ -33,7 +33,7 @@ service_unavailable_handler(_Request, _Context) ->
     body => <<"Service unavailable.\n">>}.
 
 -spec error_handler(mhttp:request(), mhttp:handler_context(),
-                    Reason :: term(), Trace :: [et_erlang:stack_item()]) ->
+                    Reason :: term(), Trace :: [c_erlang:stack_item()]) ->
         mhttp:response().
 error_handler(Request, Context, Reason, Trace) ->
   Body = [io_lib:format(<<"~s\n~p\n\n">>, [Title, Datum]) ||

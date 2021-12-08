@@ -48,7 +48,7 @@
           parser := mhttp_parser:parser(),
           upgraded => boolean()}.
 
--spec start_link(mhttp:pool_id(), options()) -> et_gen_server:start_ret().
+-spec start_link(mhttp:pool_id(), options()) -> c_gen_server:start_ret().
 start_link(PoolId, Options) ->
   gen_server:start_link(?MODULE, [PoolId, Options], []).
 
@@ -61,7 +61,7 @@ send_request(Pid, Request) ->
 send_request(Pid, Request, Options) ->
   gen_server:call(Pid, {send_request, Request, Options}, infinity).
 
--spec init(list()) -> et_gen_server:init_ret(state()).
+-spec init(list()) -> c_gen_server:init_ret(state()).
 init([PoolId, Options]) ->
   logger:update_process_metadata(#{domain => log_domain()}),
   case connect(PoolId, Options) of
@@ -71,7 +71,7 @@ init([PoolId, Options]) ->
       {stop, Reason}
   end.
 
--spec terminate(et_gen_server:terminate_reason(), state()) -> ok.
+-spec terminate(c_gen_server:terminate_reason(), state()) -> ok.
 terminate(_Reason, State = #{socket := Socket}) ->
   case maps:get(upgraded, State, false) of
     false ->
@@ -84,20 +84,20 @@ terminate(_Reason, State = #{socket := Socket}) ->
       ok
   end.
 
--spec handle_call(term(), {pid(), et_gen_server:request_id()}, state()) ->
-        et_gen_server:handle_call_ret(state()).
+-spec handle_call(term(), {pid(), c_gen_server:request_id()}, state()) ->
+        c_gen_server:handle_call_ret(state()).
 handle_call({send_request, Request, Options}, {Pid, _}, State) ->
   {reply, ok, State, {continue, {send_request, Request, Options, Pid}}};
 handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),
   {reply, unhandled, State}.
 
--spec handle_cast(term(), state()) -> et_gen_server:handle_cast_ret(state()).
+-spec handle_cast(term(), state()) -> c_gen_server:handle_cast_ret(state()).
 handle_cast(Msg, State) ->
   ?LOG_WARNING("unhandled cast ~p", [Msg]),
   {noreply, State}.
 
--spec handle_info(term(), state()) -> et_gen_server:handle_info_ret(state()).
+-spec handle_info(term(), state()) -> c_gen_server:handle_info_ret(state()).
 handle_info({Event, _}, _State) when Event =:= tcp_closed;
                                      Event =:= ssl_closed ->
   ?LOG_DEBUG("connection closed"),
@@ -110,7 +110,7 @@ handle_info(Msg, State) ->
   {noreply, State}.
 
 -spec handle_continue(term(), state()) ->
-        et_gen_server:handle_continue_ret(state()).
+        c_gen_server:handle_continue_ret(state()).
 handle_continue({send_request, Request, Options, Pid}, State) ->
   try
     send_request_1(Request, Options, State)

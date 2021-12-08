@@ -24,8 +24,8 @@
 
 -export_type([name/0, ref/0, options/0]).
 
--type name() :: et_gen_server:name().
--type ref() :: et_gen_server:ref().
+-type name() :: c_gen_server:name().
+-type ref() :: c_gen_server:ref().
 
 -type options() ::
         #{client_options => mhttp_client:options(),
@@ -59,7 +59,7 @@ process_name(Id) ->
   Name = <<"mhttp_pool_", (atom_to_binary(Id))/binary>>,
   binary_to_atom(Name).
 
--spec start_link(mhttp:pool_id(), options()) -> et_gen_server:start_ret().
+-spec start_link(mhttp:pool_id(), options()) -> c_gen_server:start_ret().
 start_link(Id, Options) ->
   Name = process_name(Id),
   gen_server:start_link({local, Name}, ?MODULE, [Id, Options], []).
@@ -78,7 +78,7 @@ send_request(Ref, Request) ->
 send_request(Ref, Request, Options) ->
   gen_server:call(Ref, {send_request, Request, Options}, infinity).
 
--spec init(list()) -> et_gen_server:init_ret(state()).
+-spec init(list()) -> c_gen_server:init_ret(state()).
 init([Id, Options]) ->
   logger:update_process_metadata(#{domain => [mhttp, pool, Id]}),
   process_flag(trap_exit, true),
@@ -89,8 +89,8 @@ init([Id, Options]) ->
             nb_clients => #{}},
   {ok, State}.
 
--spec handle_call(term(), {pid(), et_gen_server:request_id()}, state()) ->
-        et_gen_server:handle_call_ret(state()).
+-spec handle_call(term(), {pid(), c_gen_server:request_id()}, state()) ->
+        c_gen_server:handle_call_ret(state()).
 handle_call({send_request, Request, Options}, {Source, Tag}, State) ->
   try
     MaxNbRedirections = maps:get(max_nb_redirections, Options, 5),
@@ -107,12 +107,12 @@ handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),
   {reply, unhandled, State}.
 
--spec handle_cast(term(), state()) -> et_gen_server:handle_cast_ret(state()).
+-spec handle_cast(term(), state()) -> c_gen_server:handle_cast_ret(state()).
 handle_cast(Msg, State) ->
   ?LOG_WARNING("unhandled cast ~p", [Msg]),
   {noreply, State}.
 
--spec handle_info(term(), state()) -> et_gen_server:handle_info_ret(state()).
+-spec handle_info(term(), state()) -> c_gen_server:handle_info_ret(state()).
 handle_info({request_result, ClientPid, Result}, State) ->
   {noreply, process_request_result(ClientPid, Result, State)};
 handle_info({request_timeout, ClientPid, Tag}, State) ->

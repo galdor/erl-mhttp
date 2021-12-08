@@ -25,7 +25,7 @@
    [kernel,
     stdlib,
     ssl,
-    et,
+    core,
     uri,
     ksuid,
     netrc]},

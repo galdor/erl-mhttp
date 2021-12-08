@@ -24,8 +24,8 @@
 
 -export_type([name/0, ref/0, options/0]).
 
--type name() :: et_gen_server:name().
--type ref() :: et_gen_server:ref().
+-type name() :: c_gen_server:name().
+-type ref() :: c_gen_server:ref().
 
 -type options() :: #{address => inet:socket_address(),
                      port => inet:port_number(),
@@ -67,7 +67,7 @@ set_router(Ref, Router) ->
 find_route(Ref, Request, Context) ->
   gen_server:call(Ref, {find_route, Request, Context}, infinity).
 
--spec init(list()) -> et_gen_server:init_ret(state()).
+-spec init(list()) -> c_gen_server:init_ret(state()).
 init([Id, Options]) ->
   logger:update_process_metadata(#{domain => [mhttp, server, Id]}),
   case listen(Id, Options) of
@@ -78,15 +78,15 @@ init([Id, Options]) ->
       {stop, Reason}
   end.
 
--spec terminate(et_gen_server:terminate_reason(), state()) -> ok.
+-spec terminate(c_gen_server:terminate_reason(), state()) -> ok.
 terminate(Reason, State = #{socket := Socket}) ->
   gen_tcp:close(Socket),
   terminate(Reason, maps:remove(socket, State));
 terminate(_Reason, _State) ->
   ok.
 
--spec handle_call(term(), {pid(), et_gen_server:request_id()}, state()) ->
-        et_gen_server:handle_call_ret(state()).
+-spec handle_call(term(), {pid(), c_gen_server:request_id()}, state()) ->
+        c_gen_server:handle_call_ret(state()).
 
 handle_call({set_router, Router}, _From, State) ->
   {reply, ok, State#{router => Router}};
@@ -116,13 +116,13 @@ handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),
   {reply, unhandled, State}.
 
--spec handle_cast(term(), state()) -> et_gen_server:handle_cast_ret(state()).
+-spec handle_cast(term(), state()) -> c_gen_server:handle_cast_ret(state()).
 
 handle_cast(Msg, State) ->
   ?LOG_WARNING("unhandled cast ~p", [Msg]),
   {noreply, State}.
 
--spec handle_info(term(), state()) -> et_gen_server:handle_info_ret(state()).
+-spec handle_info(term(), state()) -> c_gen_server:handle_info_ret(state()).
 
 handle_info(Msg, State) ->
   ?LOG_WARNING("unhandled info ~p", [Msg]),

@@ -34,7 +34,7 @@
 start_link(Options) ->
   gen_server:start_link(?MODULE, [Options], []).
 
--spec init(list()) -> et_gen_server:init_ret(state()).
+-spec init(list()) -> c_gen_server:init_ret(state()).
 init([Options = #{socket := Socket}]) ->
   logger:update_process_metadata(#{domain => [mhttp, acceptor]}),
   process_flag(trap_exit, true),
@@ -42,17 +42,17 @@ init([Options = #{socket := Socket}]) ->
   gen_server:cast(self(), accept),
   {ok, State}.
 
--spec terminate(et_gen_server:terminate_reason(), state()) -> ok.
+-spec terminate(c_gen_server:terminate_reason(), state()) -> ok.
 terminate(_Reason, _State) ->
   ok.
 
--spec handle_call(term(), {pid(), et_gen_server:request_id()}, state()) ->
-        et_gen_server:handle_call_ret(state()).
+-spec handle_call(term(), {pid(), c_gen_server:request_id()}, state()) ->
+        c_gen_server:handle_call_ret(state()).
 handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),
   {reply, unhandled, State}.
 
--spec handle_cast(term(), state()) -> et_gen_server:handle_cast_ret(state()).
+-spec handle_cast(term(), state()) -> c_gen_server:handle_cast_ret(state()).
 handle_cast(accept, State = #{socket := Socket}) ->
   case gen_tcp:accept(Socket, 5000) of
     {ok, ConnSocket} ->
@@ -81,7 +81,7 @@ handle_cast(Msg, State) ->
   ?LOG_WARNING("unhandled cast ~p", [Msg]),
   {noreply, State}.
 
--spec handle_info(term(), state()) -> et_gen_server:handle_info_ret(state()).
+-spec handle_info(term(), state()) -> c_gen_server:handle_info_ret(state()).
 handle_info({'EXIT', _Pid, normal}, State) ->
   {noreply, State};
 handle_info({'EXIT', Pid, {Reason, Trace}}, State) when is_list(Trace) ->

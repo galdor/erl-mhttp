@@ -23,7 +23,7 @@
 
 -export_type([ref/0, options/0, event_message/0, event/0]).
 
--type ref() :: et_gen_server:ref().
+-type ref() :: c_gen_server:ref().
 
 -type options() :: #{event_target => pid() | atom(),
                      ping_interval => pos_integer(),
@@ -54,18 +54,18 @@ start_link(Options) ->
 send_message(Ref, Message) ->
   gen_server:call(Ref, {send_message, Message}, infinity).
 
--spec init(list()) -> et_gen_server:init_ret(state()).
+-spec init(list()) -> c_gen_server:init_ret(state()).
 init([Options]) ->
   logger:update_process_metadata(#{domain => [mhttp, websocket_client]}),
   State = #{options => Options},
   {ok, State}.
 
--spec terminate(et_gen_server:terminate_reason(), state()) -> ok.
+-spec terminate(c_gen_server:terminate_reason(), state()) -> ok.
 terminate(_Reason, State) ->
   send_event(terminating, State).
 
--spec handle_call(term(), {pid(), et_gen_server:request_id()}, state()) ->
-        et_gen_server:handle_call_ret(state()).
+-spec handle_call(term(), {pid(), c_gen_server:request_id()}, state()) ->
+        c_gen_server:handle_call_ret(state()).
 handle_call({activate, Socket, Transport, Data}, _From, State) ->
   {Address, Port} = peername(Socket, Transport),
   ?LOG_DEBUG("connected to ~s:~b", [inet:ntoa(Address), Port]),
@@ -91,12 +91,12 @@ handle_call(Msg, From, State) ->
   ?LOG_WARNING("unhandled call ~p from ~p", [Msg, From]),
   {reply, unhandled, State}.
 
--spec handle_cast(term(), state()) -> et_gen_server:handle_cast_ret(state()).
+-spec handle_cast(term(), state()) -> c_gen_server:handle_cast_ret(state()).
 handle_cast(Msg, State) ->
   ?LOG_WARNING("unhandled cast ~p", [Msg]),
   {noreply, State}.
 
--spec handle_info(term(), state()) -> et_gen_server:handle_info_ret(state()).
+-spec handle_info(term(), state()) -> c_gen_server:handle_info_ret(state()).
 handle_info(send_ping, State = #{options := Options}) ->
   Data = integer_to_binary(os:system_time(millisecond)),
   do_send_message({ping, Data}, State),
